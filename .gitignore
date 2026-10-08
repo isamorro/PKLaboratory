@@ -1,0 +1,12 @@
+# Local lint/editor config
+.lintr
+.vscode/
+
+# macOS
+.DS_Store
+
+# R / Shiny local artifacts
+.Rhistory
+.RData
+.Ruserdata
+rsconnect/
