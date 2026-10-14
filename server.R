@@ -41,10 +41,11 @@ server <- function(input, output, session) {
   observeEvent(model(), {
     shiny::req(model())
     cmts <- get_model_cmt(model())
-    updateSelectInput(session, "dose_cmt", choices = cmts, selected = cmts[1])
+    updateSelectInput(session, "dose_cmt", choices = cmts,
+                      selected = utils::head(cmts, 1))
   })
 
-  # Resultado de pulsar "Simular", o bien datos, o bien mensajes de error.
+  # Resultado de pulsar "Simular": o bien datos, o bien mensajes de error.
   sim_result <- eventReactive(input$simulate, {
 
     shiny::req(model())
@@ -56,6 +57,7 @@ server <- function(input, output, session) {
       params = params,
       dose = input$dose,
       dose_cmt = input$dose_cmt,
+      model_cmts = get_model_cmt(model()),
       n_doses = input$n_doses,
       interval = input$interval,
       end_time = input$end_time
@@ -89,7 +91,7 @@ server <- function(input, output, session) {
     result$data
   })
 
-  # Único lugar donde se muestran los errores (caja roja).
+  # Se muestran los errores.
   output$sim_errors <- renderUI({
     errors <- sim_result()$errors
     if (length(errors) == 0) {
@@ -103,8 +105,8 @@ server <- function(input, output, session) {
     )
   })
 
-  # Variables disponibles tras simular; se mantiene la selección si sigue 
-  # siendo válida.
+  # Variables disponibles tras simular
+  # Se mantiene la selección si sigue siendo válida.
   observeEvent(simulation(), {
     vars <- setdiff(names(simulation()), c("ID", "time"))
     kept <- intersect(input$plot_vars, vars)
@@ -117,8 +119,8 @@ server <- function(input, output, session) {
     {
       shiny::req(input$simulate > 0)
       data <- simulation()
-      shiny::req(length(input$plot_vars) > 0,
-                 all(input$plot_vars %in% names(data)))
+      shiny::req(length(input$plot_vars) > 0, all(input$plot_vars
+                                                  %in% names(data)))
 
       create_pk_plot(data, input$plot_vars, input$model_id)
     },

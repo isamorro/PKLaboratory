@@ -33,8 +33,9 @@ build_param_inputs <- function(params) {
 # Devuelve: lista de valores con los nombres de los parámetros.
 read_param_inputs <- function(input, param_names) {
   stats::setNames(
-    lapply(param_names, function(name) 
-             input[[paste0(param_input_prefix, name)]]),
+    lapply(param_names, function(name) {
+      input[[paste0(param_input_prefix, name)]]
+    }),
     param_names
   )
 }

@@ -13,9 +13,17 @@
 # Patrones de errores conocidos y mensajes correspondientes en español.
 error_patterns <- list(
   list(
-    pattern = "pred_([A-Za-z0-9_]+) has a 0 or negative value",
+    pattern = "pred_([A-Za-z0-9_]+)\\s+has\\s+a\\s+0\\s+or\\
+    s+negative\\s+value",
     message = function(m) {
       sprintf("El parámetro %s debe ser mayor que 0 en este modelo.", m[2])
+    }
+  ),
+  list(
+    pattern = "missing value in cmt",
+    message = function(m) {
+      "Este modelo no tiene compartimentos, por lo que no admite
+       administración de dosis."
     }
   )
 )

@@ -25,7 +25,7 @@ is_valid_number <- function(x) {
 # Recibe: identificador del modelo, parámetros, dosis, compartimento
 # de administración y tiempo final.
 # Devuelve: vector de mensajes de error, vacío si no se detectan errores.
-validate_simulation <- function(model_id, params, dose, dose_cmt,
+validate_simulation <- function(model_id, params, dose, dose_cmt, model_cmts,
                                 n_doses, interval, end_time) {
 
   errors <- character(0)
@@ -73,7 +73,18 @@ validate_simulation <- function(model_id, params, dose, dose_cmt,
       )
     }
   }
- 
+
+  if (length(model_cmts) == 0) {
+    errors <- c(
+      errors,
+      "Este modelo no tiene compartimentos, por lo que no admite 
+      administración de dosis."
+    )
+  } else if (!isTRUE(dose_cmt %in% model_cmts)) {
+    errors <- c(errors, "Selecciona el compartimento donde 
+    se administra la dosis.")
+  }
+
   if (!is.character(dose_cmt) || length(dose_cmt) != 1 || !nzchar(dose_cmt)) {
     errors <- c(errors, "Selecciona el compartimento donde 
     se administra la dosis.")
