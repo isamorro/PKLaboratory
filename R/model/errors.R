@@ -10,21 +10,26 @@
 # mensajes en español para el usuario.
 # ============================================================
 
+# Mensaje para los modelos que no tienen compartimentos.
+no_compartments_error <- paste(
+  "Este modelo no tiene compartimentos,",
+  "por lo que no admite administración de dosis."
+)
+
 # Patrones de errores conocidos y mensajes correspondientes en español.
 error_patterns <- list(
   list(
-    pattern = "pred_([A-Za-z0-9_]+)\\s+has\\s+a\\s+0\\s+or\\
-    s+negative\\s+value",
+    pattern = paste0(
+      "pred_([A-Za-z0-9_]+)\\s+has\\s+a\\s+0\\s+or\\s+",
+      "negative\\s+value"
+    ),
     message = function(m) {
       sprintf("El parámetro %s debe ser mayor que 0 en este modelo.", m[2])
     }
   ),
   list(
     pattern = "missing value in cmt",
-    message = function(m) {
-      "Este modelo no tiene compartimentos, por lo que no admite
-       administración de dosis."
-    }
+    message = function(m) no_compartments_error
   )
 )
 
@@ -35,6 +40,7 @@ generic_simulation_error <- paste(
 )
 
 # Convierte un error de simulación en un mensaje en español para el usuario.
+# El mensaje original solo se escribe en la consola, para depuración.
 # Recibe: objeto de error.
 # Devuelve: mensaje específico si reconoce el error o un mensaje genérico.
 translate_simulation_error <- function(e) {

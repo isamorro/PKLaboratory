@@ -17,12 +17,14 @@ param_input_prefix <- "param_"
 # Recibe: lista de parámetros con sus nombres y valores por defecto.
 # Devuelve: conjunto de elementos de la interfaz de Shiny.
 build_param_inputs <- function(params) {
-  shiny::tagList(
+  shiny::div(
+    class = "pk-param-grid",
     lapply(names(params), function(name) {
       shiny::numericInput(
         inputId = paste0(param_input_prefix, name),
         label = name,
-        value = params[[name]]
+        value = params[[name]],
+        width = "100%"
       )
     })
   )

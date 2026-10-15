@@ -31,7 +31,8 @@ non_negative_params <- c(
   Q3 = "aclaramiento intercompartimental 3"
 )
 
-# Comprueba que los parámetros incluidos en positive_params sean positivos.
+# Comprueba que los parámetros cumplan las reglas de positive_params
+# (mayores que 0) y de non_negative_params (no negativos).
 # Recibe: lista de parámetros con sus nombres y valores.
 # Devuelve: vector de mensajes de error, vacío si no se detectan
 # incumplimientos.

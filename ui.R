@@ -6,81 +6,47 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Define la interfaz de usuario de PKLaboratory y la distribución
-# de sus controles y resultados.
+# Define la interfaz de usuario de PKLaboratory y organiza sus
+# páginas de navegación. El contenido de cada página está en R/view/.
 # ============================================================
 
-ui <- fluidPage(
+ui <- bslib::page_navbar(
+  id = "main_nav",
+  title = shiny::span(
+    class = "pk-brand",
+    shiny::span(class = "pk-brand-mark", "PK"),
+    shiny::span(class = "pk-brand-name", "PKLaboratory")
+  ),
+  window_title = "PKLaboratory",
+  lang = "es",
+  fillable = FALSE,
 
-  titlePanel("Simulación farmacocinética"),
+  theme = bslib::bs_theme(
+    version = 5,
+    primary = "#187A5B",
+    secondary = "#64746D",
+    bg = "#F7FAF8",
+    fg = "#243D33",
+    base_font = bslib::font_google("Inter", local = FALSE),
+    heading_font = bslib::font_google("Inter", local = FALSE)
+  ),
 
-  sidebarLayout(
+  header = shiny::tags$link(rel = "stylesheet", href = "styles.css"),
 
-    sidebarPanel(
+  bslib::nav_panel(
+    title = "Inicio",
+    value = "home",
+    home_ui()
+  ),
 
-      selectInput(
-        "model_id",
-        "Modelo",
-        choices = list_models(),
-        selected = "pk1"
-      ),
+  bslib::nav_panel(
+    title = "Simulación",
+    value = "simulation",
+    simulation_ui()
+  ),
 
-      h4("Parámetros del modelo"),
-      uiOutput("param_inputs"),
-
-      h4("Administración"),
-
-      selectInput(
-        "dose_cmt",
-        "Compartimento de administración",
-        choices = NULL
-      ),
-
-      numericInput(
-        "dose",
-        "Dosis",
-        value = 100,
-        min = 0
-      ),
-
-      numericInput(
-        "n_doses",
-        "Número de dosis",
-        value = 10,
-        min = 1,
-        step = 1
-      ),
-
-      numericInput(
-        "interval",
-        "Intervalo entre dosis (si hay más de una)",
-        value = 24,
-        min = 0
-      ),
-
-      numericInput(
-        "end_time",
-        "Tiempo final",
-        value = 480,
-        min = 0
-      ),
-
-      actionButton(
-        "simulate",
-        "Simular"
-      )
-    ),
-
-    mainPanel(
-      uiOutput("sim_errors"),
-      selectInput(
-        "plot_vars",
-        "Variables a representar",
-        choices = NULL,
-        multiple = TRUE
-      ),
-      plotOutput("pk_plot", height = "auto"),
-      tableOutput("results")
-    )
+  footer = shiny::tags$footer(
+    class = "pk-footer",
+    "PKLaboratory · Proyecto TFG · Simulaciones con mrgsolve"
   )
 )

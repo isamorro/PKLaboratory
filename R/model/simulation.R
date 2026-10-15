@@ -36,9 +36,10 @@ choose_time_step <- function(end_time, interval, n_doses) {
   step
 }
 
-# Ejecuta una simulación farmacocinética sin efectos aleatorios.
+# Ejecuta una simulación farmacocinética sin efectos aleatorios. Si mrgsolve
+# falla, lanza un error con el mensaje ya traducido al español.
 # Recibe: identificador del modelo, parámetros, dosis, compartimento
-# de administración y tiempo final.
+# de administración, intervalo entre dosis, número de dosis y tiempo final.
 # Devuelve: data.frame con los resultados de la simulación.
 simulate_model <- function(model_id, params, dose, dose_cmt,
                            interval, n_doses, end_time) {

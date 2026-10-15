@@ -12,6 +12,13 @@
 # la sesión.
 # ============================================================
 
+# Caché de modelos ya compilados durante la sesión de R.
+# Compilar un modelo tarda unos segundos, así que solo se hace una vez.
+.model_cache <- new.env(parent = emptyenv())
+
+# Obtiene los identificadores de los modelos disponibles en mrgsolve.
+models_ids <- list_models()
+
 # Obtiene los identificadores de los modelos disponibles en mrgsolve.
 # Devuelve: vector de nombres ordenados alfabéticamente.
 list_models <- function() {
@@ -20,15 +27,11 @@ list_models <- function() {
   sort(sub("\\.cpp$", "", files))
 }
 
-# Caché de modelos ya compilados durante la sesión de R.
-# Compilar un modelo tarda unos segundos, así que solo se hace una vez.
-.model_cache <- new.env(parent = emptyenv())
-
 # Carga el modelo indicado y lo almacena para reutilizarlo durante la sesión.
 # Recibe: identificador del modelo.
 # Devuelve: modelo de mrgsolve compilado.
 load_model <- function(model_id) {
-  if (!model_id %in% list_models()) {
+  if (!model_id %in% models_ids) {
     stop("Modelo no disponible: ", model_id, call. = FALSE)
   }
 
