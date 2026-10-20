@@ -22,20 +22,25 @@ is_valid_number <- function(x) {
 }
 
 # Comprueba los datos de entrada antes de ejecutar la simulación.
-# Recibe: identificador del modelo, parámetros, dosis, compartimento de
-# administración, compartimentos del modelo, número de dosis, intervalo
-# entre dosis y tiempo final.
+# Recibe: parámetros, dosis, compartimento de administración, compartimentos
+# del modelo, número de dosis, intervalo entre dosis y tiempo final.
 # Devuelve: vector de mensajes de error, vacío si no se detectan errores.
-validate_simulation <- function(model_id, params, dose, dose_cmt, model_cmts,
-                                n_doses, interval, end_time) {
-
+validate_simulation <- function(params, dose, dose_cmt, model_cmts,
+                                n_doses, interval, end_time,
+                                apply_param_rules = TRUE) {
   errors <- character(0)
 
-  if (!isTRUE(model_id %in% list_models())) {
-    errors <- c(errors, "Selecciona un modelo válido.")
-  }
-
-  if (!is_valid_number(dose) || dose <= 0) {
+  if (length(model_cmts) == 0) {
+    if (!is_valid_number(dose) || dose < 0) {
+      errors <- c(
+        errors,
+        paste(
+          "La dosis debe ser un número mayor o igual que 0",
+          "para modelos sin compartimentos."
+        )
+      )
+    }
+  } else if (!is_valid_number(dose) || dose <= 0) {
     errors <- c(errors, "La dosis debe ser un número mayor que 0.")
   }
 
@@ -68,8 +73,10 @@ validate_simulation <- function(model_id, params, dose, dose_cmt, model_cmts,
           "cuando hay más de una dosis."
         )
       )
-    } else if (is_valid_number(end_time) &&
-                 (n_doses - 1) * interval > end_time) {
+    } else if (
+      is_valid_number(end_time) &&
+        (n_doses - 1) * interval > end_time
+    ) {
       errors <- c(
         errors,
         sprintf(
@@ -84,16 +91,14 @@ validate_simulation <- function(model_id, params, dose, dose_cmt, model_cmts,
     }
   }
 
-  if (length(model_cmts) == 0) {
-    errors <- c(errors, no_compartments_error)
-  } else if (!isTRUE(dose_cmt %in% model_cmts)) {
+  if (length(model_cmts) > 0 && !isTRUE(dose_cmt %in% model_cmts)) {
     errors <- c(
       errors,
       "Selecciona el compartimento donde se administra la dosis."
     )
   }
 
-  # Parámetros vacíos o no numéricos
+  # Parámetros vacíos o no numéricos.
   invalid <- names(params)[!vapply(params, is_valid_number, logical(1))]
   if (length(invalid) > 0) {
     errors <- c(
@@ -105,6 +110,9 @@ validate_simulation <- function(model_id, params, dose, dose_cmt, model_cmts,
     )
   }
 
-  # Reglas específicas de parámetros
-  c(errors, check_param_rules(params))
+  # Reglas específicas de parámetros.
+  c(
+    errors,
+    if (apply_param_rules) check_param_rules(params) else character()
+  )
 }

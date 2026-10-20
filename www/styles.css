@@ -6,7 +6,11 @@
   URL: https://pklaboratory.shinyapps.io/pklaboratory/
 
   Descripción:
-  Hoja de estilos de la aplicación. 
+  Hoja de estilos de la aplicación. Define la paleta y las
+  variables globales, la barra de navegación, la página de inicio,
+  el panel de simulación (formulario, parámetros, resultados y
+  descargas), la creación y edición de modelos, la animación de
+  entrada y la adaptación a pantallas móviles.
 ============================================================ */
 
 /* ------------------------------------------------------------
@@ -36,10 +40,174 @@
   Base
 ------------------------------------------------------------ */
 
+body > .container-fluid {
+  padding-right: 0;
+  padding-left: 0;
+}
+
 body {
   background: var(--pk-bg);
   color: var(--pk-text);
   -webkit-font-smoothing: antialiased;
+}
+
+.pk-login-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+
+  background:
+    radial-gradient(
+      ellipse at 10% 20%,
+      rgba(24, 122, 91, 0.12),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse at 90% 80%,
+      rgba(139, 92, 246, 0.10),
+      transparent 50%
+    ),
+    linear-gradient(135deg, #f4f8f5, #edf3fa);
+}
+
+/* Curvas decorativas detrás del formulario */
+.pk-login-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900' fill='none'%3E%3Cpath d='M-100 760 C60 760 80 200 250 200 S540 700 1540 760' stroke='%23187a5b' stroke-opacity='.12' stroke-width='3'/%3E%3Cpath d='M-100 800 C100 800 160 340 360 340 S740 740 1540 800' stroke='%234f5bd5' stroke-opacity='.10' stroke-width='3'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+.pk-login-card {
+  width: min(100%, 420px);
+  padding: 36px 32px;
+  border: 1px solid var(--pk-border);
+  border-radius: 22px;
+  background: var(--pk-surface);
+  box-shadow: var(--pk-shadow);
+}
+
+.pk-login-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 30px;
+}
+
+.pk-login-brand h1 {
+  margin: 0;
+  color: var(--pk-text);
+  font-size: clamp(1.3rem, 6vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+}
+
+.pk-login-card h2 {
+  margin: 0 0 24px;
+  text-align: center;
+  color: var(--pk-muted);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.pk-login-card .shiny-input-container {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.pk-login-card .control-label {
+  margin-bottom: 8px;
+  color: var(--pk-text);
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.pk-login-card .form-control {
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 1px solid var(--pk-border);
+  border-radius: 11px;
+  background: var(--pk-bg);
+  color: var(--pk-text);
+  font-size: .9rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.pk-login-card .form-control::placeholder { color: var(--pk-muted); }
+
+.pk-login-card .form-control:focus {
+  background: var(--pk-surface);
+  border-color: var(--pk-primary);
+  box-shadow: 0 0 0 3px rgba(24, 122, 91, .12);
+}
+
+.pk-login-submit {
+  min-height: 48px;
+  margin-top: 6px;
+  border: 1px solid var(--pk-primary);
+  border-radius: 11px;
+  background: var(--pk-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.pk-login-submit:hover,
+.pk-login-submit:focus-visible {
+  background: var(--pk-primary-dark);
+  border-color: var(--pk-primary-dark);
+}
+
+.pk-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 16px 0;
+}
+
+.pk-logout-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
+  padding-right: 0;
+}
+
+.pk-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--pk-border);
+  border-radius: 12px;
+  background: rgba(24, 122, 91, 0.05);
+  color: var(--pk-primary-dark);
+  font-weight: 600;
+  box-shadow: none;
+  transition: all 0.15s ease;
+}
+
+.pk-logout-btn:hover,
+.pk-logout-btn:focus {
+  background: rgba(24, 122, 91, 0.1);
+  border-color: rgba(24, 122, 91, 0.25);
+  color: var(--pk-primary-dark);
+  box-shadow: none;
 }
 
 h1, h2, h3, h4 {
@@ -73,6 +241,9 @@ h1, h2, h3, h4 {
   position: sticky;
   top: 0;
   z-index: 1030;
+  min-height: 76px;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
   background: rgba(255, 255, 255, 0.85) !important;
   backdrop-filter: saturate(180%) blur(12px);
   -webkit-backdrop-filter: saturate(180%) blur(12px);
@@ -80,31 +251,65 @@ h1, h2, h3, h4 {
   box-shadow: none;
 }
 
+.navbar .container-fluid,
+.navbar .navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.navbar .navbar-collapse.show,
+.navbar .navbar-collapse.collapsing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.navbar .navbar-collapse {
+  justify-content: center;
+  flex: 1;
+}
+
+.navbar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0 auto;
+}
+
 .navbar .navbar-brand,
 .navbar .navbar-brand:hover {
   color: var(--pk-text);
+  display: inline-flex;
+  align-items: center;
+  margin-right: 1rem;
 }
 
 .pk-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   font-weight: 700;
-  font-size: 1.15rem;
-  letter-spacing: -0.02em;
+  font-size: 2.1rem;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .pk-brand-mark {
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   background: linear-gradient(135deg, var(--pk-primary), var(--pk-indigo));
   color: #fff;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: 0;
+  box-shadow: 0 8px 18px rgba(24, 122, 91, 0.18);
 }
 
 .navbar .nav-link {
@@ -440,37 +645,36 @@ h1, h2, h3, h4 {
   box-shadow: 0 6px 16px rgba(24, 122, 91, 0.25);
 }
 
+/* Estructura y descripción de un modelo creado por el usuario */
+.pk-model-desc {
+  margin: -4px 0 8px;
+  color: var(--pk-muted);
+  font-size: 0.85rem;
+}
+
+.pk-model-desc p {
+  margin: 4px 0 0;
+}
+
 /* ------------------------------------------------------------
   Simulación: parámetros del modelo
 ------------------------------------------------------------ */
 
-.pk-params .accordion-item {
+.pk-param-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 6px;
   border: 1px solid var(--pk-border);
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.pk-params .accordion-button {
-  padding: 10px 14px;
-  background: var(--pk-bg);
-  color: var(--pk-muted);
-  font-size: 0.78rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  box-shadow: none;
-}
-
-.pk-params .accordion-body {
-  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .pk-param-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px 10px;
-  max-height: 300px;
-  padding-right: 4px;
+  max-height: 260px;
+  padding: 10px;
   overflow-y: auto;
 }
 
@@ -585,6 +789,222 @@ h1, h2, h3, h4 {
 .pk-download-amber:hover { background: var(--pk-amber); color: #fff; }
 
 /* ------------------------------------------------------------
+  Creación de modelos
+------------------------------------------------------------ */
+
+.pk-builder pre.shiny-text-output {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--pk-border);
+  border-radius: 12px;
+  background: var(--pk-bg);
+  color: var(--pk-text);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.pk-model-list {
+  padding: 0;
+  margin: 0 0 16px;
+  list-style: none;
+}
+
+.pk-model-list li {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--pk-border);
+}
+
+.pk-model-list li:last-child {
+  border-bottom: 0;
+}
+
+.pk-model-name {
+  font-weight: 700;
+}
+
+.pk-model-summary {
+  color: var(--pk-muted);
+  font-size: 0.85rem;
+}
+
+.pk-model-delete {
+  max-width: 320px;
+}
+
+/* ------------------------------------------------------------
+  Edición de modelos
+------------------------------------------------------------ */
+
+.pk-editor-modal .modal-dialog {
+  max-width: 900px;
+  margin: 4vh auto;
+}
+
+.pk-editor-modal .modal-content {
+  border: 1px solid var(--pk-border);
+  border-radius: 22px;
+  background: var(--pk-bg);
+  box-shadow: 0 24px 70px rgba(24,61,48,.18);
+  overflow: hidden;
+}
+
+/* Cabecera */
+.pk-editor-modal .modal-header {
+  padding: 22px 26px;
+  background: var(--pk-surface);
+  border-bottom: 1px solid var(--pk-border);
+}
+
+.pk-editor-modal .modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--pk-text);
+}
+
+.pk-edit-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: #e2f5ee;
+  color: var(--pk-primary);
+  font-size: .8rem;
+  letter-spacing: .02em;
+}
+
+/* Secciones */
+.pk-editor-modal .modal-body {
+  padding: 22px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.pk-editor {
+  display: grid;
+  gap: 16px;
+}
+
+.pk-editor #edit_errors:empty {
+  display: none;
+}
+
+.pk-edit-section {
+  padding: 20px;
+  border: 1px solid var(--pk-border);
+  border-radius: 15px;
+  background: var(--pk-surface);
+}
+
+.pk-edit-section h3 {
+  margin: 0 0 18px;
+  color: var(--pk-muted);
+  font-size: .73rem;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.pk-edit-section h3::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--pk-primary);
+}
+
+/* Distribución de los campos */
+.pk-edit-identity {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 18px;
+}
+
+.pk-edit-structure {
+  display: grid;
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 16px;
+}
+
+.pk-editor .shiny-input-container {
+  min-width: 0;
+  width: 100% !important;
+  margin-bottom: 0;
+}
+
+.pk-editor label {
+  font-size: .84rem;
+  font-weight: 600;
+  margin-bottom: 7px;
+  color: var(--pk-text);
+}
+
+.pk-editor .form-control,
+.pk-editor .selectize-input,
+.pk-editor .form-select {
+  min-height: 42px;
+  border: 1px solid var(--pk-border);
+  border-radius: 10px;
+  background: var(--pk-bg);
+  color: var(--pk-text);
+  font-size: .9rem;
+  box-shadow: none;
+}
+
+.pk-editor .form-control:focus,
+.pk-editor .form-select:focus,
+.pk-editor .selectize-input.focus {
+  border-color: var(--pk-primary);
+  box-shadow: 0 0 0 3px rgba(24,122,91,.12);
+}
+
+.pk-editor textarea {
+  resize: vertical;
+}
+
+.pk-editor .pk-param-grid {
+  padding: 0;
+  gap: 16px;
+  max-height: none;
+  overflow: visible;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+}
+
+/* Botones */
+.pk-editor-modal .modal-footer {
+  padding: 16px 26px;
+  gap: 8px;
+  background: var(--pk-surface);
+  border-top: 1px solid var(--pk-border);
+}
+
+.pk-editor-modal .modal-footer .btn {
+  min-height: 42px;
+  padding: 9px 20px;
+  border-radius: 11px;
+  font-size: .88rem;
+  font-weight: 600;
+}
+
+.pk-editor-modal .modal-footer .btn-primary {
+  background: var(--pk-primary);
+  border-color: var(--pk-primary);
+}
+
+.pk-editor-modal .modal-footer .btn-primary:hover {
+  border-color: var(--pk-primary-dark);
+  background: var(--pk-primary-dark);
+}
+
+/* ------------------------------------------------------------
   Pie
 ------------------------------------------------------------ */
 
@@ -594,6 +1014,78 @@ h1, h2, h3, h4 {
   color: var(--pk-muted);
   font-size: 0.85rem;
   text-align: center;
+}
+
+/* ------------------------------------------------------------
+  Entrada animada
+------------------------------------------------------------ */
+.pk-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  animation: pk-intro-dismiss 0s 2.85s forwards;
+}
+
+.pk-intro-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  background: var(--pk-primary);
+}
+
+.pk-intro-top {
+  top: 0;
+  animation: pk-curtain-up 850ms 1.9s cubic-bezier(.76, 0, .24, 1) both;
+}
+
+.pk-intro-bottom {
+  bottom: 0;
+  animation: pk-curtain-down 850ms 1.9s cubic-bezier(.76, 0, .24, 1) both;
+}
+
+.pk-intro-word {
+  position: relative;
+  display: flex;
+  color: white;
+  font-size: clamp(28px, 8vw, 112px);
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.2;
+  white-space: nowrap;
+  animation: pk-word-exit 800ms 1.45s cubic-bezier(.4, 0, .2, 1) both;
+}
+
+.pk-intro-letter {
+  display: inline-block;
+  animation: pk-letter-enter 550ms calc(120ms + var(--pk-letter-delay)) both;
+}
+
+@keyframes pk-letter-enter {
+  from { opacity: 0; transform: translateY(35%) rotate(5deg); }
+  to { opacity: 1; transform: translateY(0) rotate(0); }
+}
+
+@keyframes pk-word-exit {
+  0% { transform: scale(1); opacity: 1; }
+  65% { transform: scale(.55); opacity: 1; }
+  100% { transform: scale(.55); opacity: 0; }
+}
+
+@keyframes pk-curtain-up {
+  to { transform: translateY(-101%); }
+}
+
+@keyframes pk-curtain-down {
+  to { transform: translateY(101%); }
+}
+
+/* Respaldo CSS: la portada desaparece aunque el script no cargue. */
+@keyframes pk-intro-dismiss {
+  to { visibility: hidden; pointer-events: none; }
 }
 
 /* ------------------------------------------------------------
@@ -612,10 +1104,111 @@ h1, h2, h3, h4 {
   .pk-stats {
     grid-template-columns: 1fr;
   }
+
+}
+
+@media (max-width: 640px) {
+  .pk-editor-modal .modal-dialog {
+    margin: 12px;
+  }
+
+  .pk-editor-modal .modal-body {
+    padding: 14px;
+  }
+
+  .pk-edit-section {
+    padding: 16px;
+  }
+
+  .pk-edit-identity, .pk-edit-structure, .pk-editor .pk-param-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pk-editor-modal .modal-header, .pk-editor-modal .modal-footer {
+    padding: 16px;
+  }
+
+}
+
+@media (max-width: 480px) {
+  .pk-login-card {
+    padding: 30px 24px;
+  }
+
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
   }
+
+  .pk-intro {
+    display: none;
+  }
+
+  .pk-intro,
+  .pk-intro * {
+    animation: none !important;
+  }
+}
+
+/* Constructor por componentes: formulario, editor y vista previa */
+.pk-builder-studio { max-width: 1480px; }
+.pk-builder-heading { padding: 18px 4px 28px; }
+.pk-builder-eyebrow { color: var(--pk-primary); font-size: .72rem; font-weight: 750; letter-spacing: .1em; }
+.pk-builder-heading h2 { margin: 10px 0; font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 750; }
+.pk-builder-heading > p { margin: 0; color: var(--pk-muted); max-width: 700px; line-height: 1.6; }
+.pk-builder-route { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.pk-builder-route span { padding: 6px 12px; border: 1px solid var(--pk-border); border-radius: 30px; background: var(--pk-surface); color: var(--pk-muted); font-size: .8rem; }
+.pk-builder-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 24px; align-items: start; }
+.pk-builder-fields, .pk-builder-preview { min-width: 0; }
+.pk-builder-fields > .shiny-html-output:empty { display: none; }
+.pk-component-form { display: grid; gap: 20px; }
+.pk-component-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.pk-component-form .card { margin: 0; overflow: hidden; }
+.pk-component-form .card-header { display: flex; align-items: center; gap: 12px; padding: 18px 20px; }
+.pk-component-form h3, .pk-builder-preview h3 { margin: 0; font-size: 1rem; font-weight: 700; }
+.pk-component-form .card-body { padding: 18px 20px 20px; }
+.pk-component-identity > .card-header { background: linear-gradient(110deg, #e8f5ee, #f6faf8); }
+.pk-component-number { display: inline-grid; place-items: center; width: 32px; height: 32px; flex: 0 0 32px; border-radius: 10px; background: #e7f4ec; color: #187a5b; font-size: .78rem; font-weight: 750; }
+.pk-component-blue .pk-component-number { background: #e9effc; color: #3a5cb0; }
+.pk-component-violet .pk-component-number { background: #f0eafb; color: #754ca7; }
+.pk-component-coral .pk-component-number { background: #fceee7; color: #a9472b; }
+.pk-component-hint { color: var(--pk-muted); font-size: .88rem; line-height: 1.55; margin: 0 0 16px; }
+.pk-component-note { color: var(--pk-muted); font-size: .78rem; line-height: 1.6; margin: 10px 0 0; }
+.pk-component-form .shiny-input-container { width: 100%; margin-bottom: 12px; }
+.pk-component-form label { font-size: .8rem; font-weight: 650; }
+.pk-component-form .form-control { border: 1px solid var(--pk-border); border-radius: 10px; padding: 11px 13px; color: var(--pk-text); background: #fbfdfc; }
+.pk-component-grid textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .88rem; line-height: 1.8; tab-size: 2; min-height: 175px; }
+.pk-component-form .form-control:focus { border-color: var(--pk-primary); background: white; box-shadow: 0 0 0 3px rgba(24,122,91,.12); }
+.pk-component-help { border: 1px solid var(--pk-border); border-radius: 14px; background: var(--pk-surface); }
+.pk-component-help summary { padding: 16px 20px; cursor: pointer; color: var(--pk-primary-dark); font-size: .88rem; font-weight: 650; }
+.pk-component-help summary:focus-visible { outline: 2px solid var(--pk-primary); outline-offset: 3px; }
+.pk-component-help-body { padding: 0 20px 16px; color: var(--pk-muted); font-size: .85rem; overflow-wrap: anywhere; }
+.pk-component-help-body h4 { font-size: .9rem; color: var(--pk-text); margin: 18px 0 8px; }
+.pk-builder-preview { position: sticky; top: 24px; display: grid; gap: 18px; }
+.pk-builder-code-card { margin: 0; overflow: hidden; }
+.pk-builder-code-card > .card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; }
+.pk-builder-code-card h3 { margin-top: 5px; }
+.pk-builder-filetype { font-family: ui-monospace, monospace; padding: 5px 9px; border-radius: 7px; background: #edf3f0; color: var(--pk-primary-dark); font-size: .8rem; }
+.pk-builder-code-card > .card-body { padding: 16px; }
+.pk-builder-studio .pk-builder-code-card pre.shiny-text-output { max-height: min(48vh, 550px); min-height: 220px; overflow: auto; white-space: pre; border: 0; padding: 18px; border-radius: 10px; background: #183b31; color: #e2f3ea; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .8rem; line-height: 1.8; }
+.pk-builder-code-card > .card-footer { padding: 14px 16px; border-top: 1px solid var(--pk-border); background: var(--pk-surface); }
+.pk-builder-code-card .btn { width: 100%; border-radius: 9px; font-size: .85rem; }
+.pk-builder-save { padding: 22px; border: 1px solid #cfe5d8; border-radius: 16px; background: #eaf5ee; }
+.pk-builder-save > p:not(.pk-component-note) { color: var(--pk-muted); font-size: .85rem; line-height: 1.65; margin: 12px 0 18px; }
+.pk-builder-save-button { padding: 12px 16px; border-radius: 10px; background: var(--pk-primary); border-color: var(--pk-primary); font-weight: 650; }
+.pk-builder-save-button:hover { background: var(--pk-primary-dark); border-color: var(--pk-primary-dark); }
+.pk-builder-save .pk-component-note { text-align: center; }
+.pk-editor-modal .pk-component-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1100px) {
+  .pk-builder-workspace { grid-template-columns: minmax(0, 1fr); }
+  .pk-builder-preview { position: static; grid-template-columns: minmax(0, 1fr) minmax(240px, .6fr); align-items: start; }
+}
+@media (max-width: 650px) {
+  .pk-component-grid, .pk-editor-modal .pk-component-grid, .pk-builder-preview { grid-template-columns: minmax(0, 1fr); }
+  .pk-builder-heading { padding-top: 4px; }
+  .pk-component-form .card-header, .pk-component-form .card-body { padding: 16px; }
+  .pk-builder-route { gap: 6px; }
+  .pk-builder-route span { font-size: .75rem; padding: 5px 9px; }
 }

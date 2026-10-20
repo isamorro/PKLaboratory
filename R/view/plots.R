@@ -24,9 +24,9 @@ plot_panel_height <- 250
 # propio panel y con su propia escala vertical.
 # Recibe: data.frame con los resultados de la simulación,
 # vector con los nombres de las variables a representar y
-# identificador del modelo.
+# nombre del modelo.
 # Devuelve: objeto ggplot con el gráfico.
-create_pk_plot <- function(data, vars, model_id) {
+create_pk_plot <- function(data, vars, model_name) {
 
   long <- do.call(
     rbind,
@@ -60,7 +60,7 @@ create_pk_plot <- function(data, vars, model_id) {
     ggplot2::labs(
       x = "Tiempo",
       y = "Valor",
-      title = paste("Modelo", model_id)
+      title = paste("Modelo", model_name)
     ) +
     ggplot2::theme_minimal(base_size = 13) +
     ggplot2::theme(

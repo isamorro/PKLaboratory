@@ -22,26 +22,26 @@ simulation_controller <- function(input, output, model) {
     shiny::req(model())
     params <- read_param_inputs(input, names(get_model_params(model())))
 
-    # 1. Validación previa (mensajes en español)
+    # Validación previa (mensajes en español)
     errors <- validate_simulation(
-      model_id = input$model_id,
       params = params,
       dose = input$dose,
       dose_cmt = input$dose_cmt,
       model_cmts = get_model_cmt(model()),
       n_doses = input$n_doses,
       interval = input$interval,
-      end_time = input$end_time
+      end_time = input$end_time,
+      apply_param_rules = !isTRUE(attr(model(), "pk_components"))
     )
     if (length(errors) > 0) {
       return(list(data = NULL, errors = errors))
     }
 
-    # 2. Simulación (los errores de mrgsolve llegan ya traducidos)
+    # Simulación (los errores de mrgsolve llegan ya traducidos)
     tryCatch(
       list(
         data = simulate_model(
-          model_id = input$model_id,
+          mod = model(),
           params = params,
           dose = input$dose,
           dose_cmt = input$dose_cmt,

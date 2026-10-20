@@ -16,6 +16,17 @@ no_compartments_error <- paste(
   "por lo que no admite administración de dosis."
 )
 
+# Mensajes para los modelos creados por el usuario.
+compile_model_error <- paste(
+  "No se pudo compilar el modelo con la configuración indicada.",
+  "Revisa la estructura y los parámetros."
+)
+
+unstable_model_error <- paste(
+  "El modelo produce valores no válidos con estos parámetros.",
+  "Prueba con otros valores."
+)
+
 # Patrones de errores conocidos y mensajes correspondientes en español.
 error_patterns <- list(
   list(

@@ -18,4 +18,8 @@ navigation_controller <- function(input, session) {
   observeEvent(input$go_to_simulation, {
     updateNavbarPage(session, "main_nav", selected = "simulation")
   })
+  # Acceso desde Inicio al constructor de modelos.
+  observeEvent(input$go_to_builder, {
+    updateNavbarPage(session, "main_nav", selected = "builder")
+  })
 }

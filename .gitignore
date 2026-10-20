@@ -10,3 +10,7 @@
 .RData
 .Ruserdata
 rsconnect/
+
+# R / Shiny local config
+.Renviron
+.Renviron.*

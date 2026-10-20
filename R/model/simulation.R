@@ -38,13 +38,11 @@ choose_time_step <- function(end_time, interval, n_doses) {
 
 # Ejecuta una simulación farmacocinética sin efectos aleatorios. Si mrgsolve
 # falla, lanza un error con el mensaje ya traducido al español.
-# Recibe: identificador del modelo, parámetros, dosis, compartimento
+# Recibe: modelo de mrgsolve ya compilado, parámetros, dosis, compartimento
 # de administración, intervalo entre dosis, número de dosis y tiempo final.
 # Devuelve: data.frame con los resultados de la simulación.
-simulate_model <- function(model_id, params, dose, dose_cmt,
+simulate_model <- function(mod, params, dose, dose_cmt,
                            interval, n_doses, end_time) {
-
-  mod <- load_model(model_id)
 
   tryCatch(
     {
@@ -55,19 +53,29 @@ simulate_model <- function(model_id, params, dose, dose_cmt,
         mod <- mrgsolve::param(mod, params)
       }
 
-      dose_event <- mrgsolve::ev(
-        amt = dose,
-        cmt = dose_cmt,
-        ii = if (n_doses > 1) interval else 0,
-        addl = n_doses - 1
-      )
+      has_cmt <- length(mrgsolve::init(mod)) > 0L
 
-      result <- mod |>
-        mrgsolve::ev(dose_event) |>
-        mrgsolve::mrgsim(
-          end = end_time,
-          delta = choose_time_step(end_time, interval, n_doses)
+      result <- if (has_cmt) {
+        dose_event <- mrgsolve::ev(
+          amt = dose,
+          cmt = dose_cmt,
+          ii = if (n_doses > 1) interval else 0,
+          addl = n_doses - 1
         )
+
+        mod |>
+          mrgsolve::ev(dose_event) |>
+          mrgsolve::mrgsim(
+            end = end_time,
+            delta = choose_time_step(end_time, interval, n_doses)
+          )
+      } else {
+        mod |>
+          mrgsolve::mrgsim(
+            end = end_time,
+            delta = choose_time_step(end_time, interval, n_doses)
+          )
+      }
 
       as.data.frame(result)
     },

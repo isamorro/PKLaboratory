@@ -11,17 +11,21 @@
 # ============================================================
 
 # Nombre de archivo para las descargas.
-# Recibe: identificador del modelo y extensión.
+# Recibe: nombre del modelo y extensión.
 # Devuelve: nombre con modelo y fecha, por ejemplo simulacion_pk1_20261014.csv.
-download_name <- function(model_id, ext) {
-  paste0("simulacion_", model_id, "_", format(Sys.Date(), "%Y%m%d"), ".", ext)
+# El nombre del modelo se limpia para que sea válido como nombre de archivo.
+download_name <- function(model_name, ext) {
+  id <- model_id_from_name(model_name)
+  if (!nzchar(id)) id <- "modelo"
+  paste0("simulacion_", id, "_", format(Sys.Date(), "%Y%m%d"), ".", ext)
 }
 
 # Gestiona los resultados de la simulación: selector de variables,
 # gráfico, tabla y descargas.
-# Recibe: entradas, salidas y sesión de Shiny y reactive con los datos
-# simulados.
-results_controller <- function(input, output, session, simulation) {
+# Recibe: entradas, salidas y sesión de Shiny, reactive con los datos
+# simulados y función que devuelve el nombre de un modelo a partir de su id.
+results_controller <- function(input, output, session, simulation,
+                               model_label = identity) {
 
   # Variables disponibles tras simular; se mantiene la selección si sigue
   # siendo válida.
@@ -46,7 +50,7 @@ results_controller <- function(input, output, session, simulation) {
         all(input$plot_vars %in% names(data))
       )
 
-      create_pk_plot(data, input$plot_vars, input$model_id)
+      create_pk_plot(data, input$plot_vars, model_label(input$model_id))
     },
     height = function() plot_height(length(input$plot_vars))
   )
@@ -58,9 +62,9 @@ results_controller <- function(input, output, session, simulation) {
     head(data, 10)
   }, striped = TRUE, hover = TRUE, spacing = "s", width = "100%")
 
-  # Descarga de todos los resultados
+  # Descarga de todos los resultados.
   output$download_csv <- downloadHandler(
-    filename = function() download_name(input$model_id, "csv"),
+    filename = function() download_name(model_label(input$model_id), "csv"),
     content = function(file) {
       utils::write.csv(simulation(), file, row.names = FALSE)
     }
@@ -68,7 +72,7 @@ results_controller <- function(input, output, session, simulation) {
 
   # Misma descarga con separador ";" y coma decimal, para Excel en español.
   output$download_csv_excel <- downloadHandler(
-    filename = function() download_name(input$model_id, "csv"),
+    filename = function() download_name(model_label(input$model_id), "csv"),
     content = function(file) {
       utils::write.csv2(simulation(), file, row.names = FALSE)
     }
@@ -76,7 +80,7 @@ results_controller <- function(input, output, session, simulation) {
 
   # Descarga del gráfico.
   output$download_plot <- downloadHandler(
-    filename = function() download_name(input$model_id, "png"),
+    filename = function() download_name(model_label(input$model_id), "png"),
     content = function(file) {
       data <- simulation()
       shiny::req(
@@ -86,7 +90,9 @@ results_controller <- function(input, output, session, simulation) {
 
       ggplot2::ggsave(
         file,
-        plot = create_pk_plot(data, input$plot_vars, input$model_id),
+        plot = create_pk_plot(
+          data, input$plot_vars, model_label(input$model_id)
+        ),
         device = "png",
         width = 10,
         height = plot_height(length(input$plot_vars)) / 100,

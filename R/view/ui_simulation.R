@@ -11,8 +11,10 @@
 # ============================================================
 
 # Construye la página de simulación.
+# Recibe: opciones del selector de modelos y modelo seleccionado.
 # Devuelve: formulario lateral y tarjetas con los resultados.
-simulation_ui <- function() {
+simulation_ui <- function(model_choices = list_models(),
+                          selected_model = default_model_id) {
   shiny::div(
     class = "pk-sim",
 
@@ -26,25 +28,22 @@ simulation_ui <- function() {
 
         shiny::div(
           class = "pk-form-section",
+          shiny::h4("Modelo"),
           shiny::selectInput(
             "model_id",
-            "Modelo",
-            choices = list_models(),
-            selected = "pk1"
+            label = NULL,
+            choices = model_choices,
+            selected = selected_model,
+            width = "100%"
           )
         ),
 
         shiny::div(
-          class = "pk-form-section",
-          bslib::accordion(
-            id = "params_accordion",
-            class = "pk-params",
-            open = "params",
-            bslib::accordion_panel(
-              title = "Parámetros del modelo",
-              value = "params",
-              shiny::uiOutput("param_inputs")
-            )
+          class = "pk-form-section pk-param-section",
+          shiny::h4("Parámetros"),
+          shiny::div(
+            class = "pk-param-scroll",
+            shiny::uiOutput("param_inputs")
           )
         ),
 

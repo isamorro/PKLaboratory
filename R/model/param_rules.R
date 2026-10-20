@@ -6,7 +6,8 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Contiene las reglas sobre parámetros de los modelos predefinidos.
+# Contiene las reglas sobre parámetros de los modelos predefinidos
+# y de los modelos creados por el usuario.
 # ============================================================
 
 # Parámetros que deben ser estrictamente positivos.
@@ -19,13 +20,15 @@ positive_params <- c(
   V4 = "volumen del compartimento 4",
   VC = "volumen del compartimento central",
   VP = "volumen del compartimento periférico",
-  KA = "constante de absorción"
+  KA = "constante de absorción",
+  KM = "constante de Michaelis-Menten"
 )
 
 # Parámetros que no pueden ser negativos, pero sí 0.
 # (Q = 0 significa "sin intercambio con el compartimento periférico";
-#  algunos modelos, como emax o irm4, lo traen así por defecto.)
+# algunos modelos, como emax o irm4, lo traen así por defecto.)
 non_negative_params <- c(
+  VMAX = "velocidad máxima de eliminación",
   Q  = "aclaramiento intercompartimental",
   Q2 = "aclaramiento intercompartimental 2",
   Q3 = "aclaramiento intercompartimental 3"
