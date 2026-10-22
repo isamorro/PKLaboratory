@@ -14,15 +14,21 @@ max_time_points <- 20000
 
 # Calcula el paso temporal para la simulación, de forma que se generen
 # un número razonable de puntos y se representen correctamente las dosis.
-# Recibe: tiempo final, intervalo entre dosis y número de dosis.
+# Recibe: tiempo final, intervalo entre dosis, número de dosis y duración
+# de la infusión (0 si es un bolo).
 # Devuelve: paso temporal a utilizar en la simulación.
-choose_time_step <- function(end_time, interval, n_doses) {
+choose_time_step <- function(end_time, interval, n_doses, infusion = 0) {
 
   step <- end_time / 1000
 
   # Con varias dosis, al menos 20 puntos por intervalo entre dosis.
   if (n_doses > 1) {
     step <- min(step, interval / 20)
+  }
+
+  # Con infusión, al menos 10 puntos mientras dura.
+  if (infusion > 0) {
+    step <- min(step, infusion / 10)
   }
 
   step <- max(step, end_time / max_time_points)
@@ -39,10 +45,11 @@ choose_time_step <- function(end_time, interval, n_doses) {
 # Ejecuta una simulación farmacocinética sin efectos aleatorios. Si mrgsolve
 # falla, lanza un error con el mensaje ya traducido al español.
 # Recibe: modelo de mrgsolve ya compilado, parámetros, dosis, compartimento
-# de administración, intervalo entre dosis, número de dosis y tiempo final.
+# de administración, intervalo entre dosis, número de dosis, tiempo final y
+# duración de la infusión (0 si cada dosis es un bolo).
 # Devuelve: data.frame con los resultados de la simulación.
 simulate_model <- function(mod, params, dose, dose_cmt,
-                           interval, n_doses, end_time) {
+                           interval, n_doses, end_time, infusion = 0) {
 
   tryCatch(
     {
@@ -56,18 +63,21 @@ simulate_model <- function(mod, params, dose, dose_cmt,
       has_cmt <- length(mrgsolve::init(mod)) > 0L
 
       result <- if (has_cmt) {
+        # Con infusión, la dosis entra a velocidad constante (cantidad por
+        # unidad de tiempo) durante el tiempo indicado.
         dose_event <- mrgsolve::ev(
           amt = dose,
           cmt = dose_cmt,
           ii = if (n_doses > 1) interval else 0,
-          addl = n_doses - 1
+          addl = n_doses - 1,
+          rate = if (infusion > 0) dose / infusion else 0
         )
 
         mod |>
           mrgsolve::ev(dose_event) |>
           mrgsolve::mrgsim(
             end = end_time,
-            delta = choose_time_step(end_time, interval, n_doses)
+            delta = choose_time_step(end_time, interval, n_doses, infusion)
           )
       } else {
         mod |>

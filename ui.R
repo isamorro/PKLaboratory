@@ -10,7 +10,7 @@
 # páginas de navegación. El contenido de cada página está en R/view/.
 # ============================================================
 
-# Un único tema desde la carga inicial, también para el acceso.
+# Tema de la aplicación.
 pk_theme <- bslib::bs_theme(
   version = 5,
   primary = "#187A5B",
@@ -24,6 +24,7 @@ pk_theme <- bslib::bs_theme(
 # Interfaz de usuario de la aplicación principal.
 # Recibe: opciones del selector de modelos y modelo seleccionado, para que
 # los modelos del usuario ya estén en el selector desde el primer momento.
+# Devuelve: barra de navegación con las páginas de la aplicación.
 main_app_ui <- function(model_choices = list_models(),
                         selected_model = default_model_id) {
   bslib::page_navbar(
@@ -60,9 +61,21 @@ main_app_ui <- function(model_choices = list_models(),
     ),
 
     bslib::nav_panel(
+      title = "Análisis poblacional",
+      value = "population",
+      population_ui()
+    ),
+
+    bslib::nav_panel(
       title = "Mis modelos",
       value = "models",
       models_ui()
+    ),
+
+    bslib::nav_panel(
+      title = "Guía de uso",
+      value = "help",
+      help_ui()
     ),
 
     bslib::nav_spacer(),
@@ -77,7 +90,7 @@ main_app_ui <- function(model_choices = list_models(),
 
     footer = shiny::tags$footer(
       class = "pk-footer",
-      "PKLaboratory · Proyecto TFG · Simulaciones con mrgsolve"
+      "PKLaboratory · Proyecto TFG"
     )
   )
 }

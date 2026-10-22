@@ -31,7 +31,8 @@ simulation_controller <- function(input, output, model) {
       n_doses = input$n_doses,
       interval = input$interval,
       end_time = input$end_time,
-      apply_param_rules = !isTRUE(attr(model(), "pk_components"))
+      apply_param_rules = !isTRUE(attr(model(), "pk_components")),
+      infusion = input$infusion
     )
     if (length(errors) > 0) {
       return(list(data = NULL, errors = errors))
@@ -47,7 +48,8 @@ simulation_controller <- function(input, output, model) {
           dose_cmt = input$dose_cmt,
           n_doses = input$n_doses,
           interval = input$interval,
-          end_time = input$end_time
+          end_time = input$end_time,
+          infusion = input$infusion
         ),
         errors = character(0)
       ),

@@ -27,9 +27,13 @@ login_max_tracked <- 1000
 .login_failures <- new.env(parent = emptyenv())
 
 # Normaliza el usuario para que "Ana" y "ana " cuenten como el mismo.
+# Recibe: usuario.
+# Devuelve: usuario en minúsculas y sin espacios sobrantes.
 login_key <- function(username) tolower(trimws(username))
 
-# Fallos recientes (dentro de la ventana) de un usuario.
+# Obtiene los fallos recientes (dentro de la ventana) de un usuario.
+# Recibe: usuario e instante actual.
+# Devuelve: vector con los instantes de esos fallos.
 recent_login_failures <- function(username, now) {
   times <- .login_failures[[login_key(username)]]
   if (is.null(times)) {
@@ -82,6 +86,7 @@ clear_login_failures <- function(username) {
 
 # Texto de espera para mostrar al usuario ("2 minutos", "30 segundos").
 # Recibe: segundos de espera.
+# Devuelve: texto con la espera en minutos o segundos.
 describe_wait <- function(seconds) {
   if (seconds >= 60) {
     minutes <- ceiling(seconds / 60)

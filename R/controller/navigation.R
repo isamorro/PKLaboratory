@@ -14,12 +14,20 @@
 # Recibe: entradas y sesión de Shiny.
 navigation_controller <- function(input, session) {
 
-  # Botón de la página de inicio: lleva a la pestaña de simulación.
-  observeEvent(input$go_to_simulation, {
-    updateNavbarPage(session, "main_nav", selected = "simulation")
-  })
-  # Acceso desde Inicio al constructor de modelos.
-  observeEvent(input$go_to_builder, {
-    updateNavbarPage(session, "main_nav", selected = "builder")
+  # Tarjetas de Inicio (cada una abre su sección) y botón de Mis modelos
+  # para crear uno nuevo.
+  sections <- c(
+    home_open_simulation = "simulation",
+    home_open_builder = "builder",
+    home_open_population = "population",
+    home_open_models = "models",
+    models_new = "builder"
+  )
+  for (name in names(sections)) local({
+    link <- name
+    target <- sections[[link]]
+    observeEvent(input[[link]], {
+      updateNavbarPage(session, "main_nav", selected = target)
+    })
   })
 }

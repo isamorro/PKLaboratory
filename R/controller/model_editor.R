@@ -44,7 +44,7 @@ model_editor_controller <- function(
     editing(list(id = id, original = models[[id]]$spec, ns = ns))
     problems(character())
 
-    spec <- as_component_spec(models[[id]]$spec)
+    spec <- models[[id]]$spec
     modal <- shiny::modalDialog(
       title = "Editar modelo por componentes",
       size = "l",

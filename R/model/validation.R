@@ -23,11 +23,12 @@ is_valid_number <- function(x) {
 
 # Comprueba los datos de entrada antes de ejecutar la simulación.
 # Recibe: parámetros, dosis, compartimento de administración, compartimentos
-# del modelo, número de dosis, intervalo entre dosis y tiempo final.
+# del modelo, número de dosis, intervalo entre dosis, tiempo final, si se
+# aplican las reglas de los parámetros y duración de la infusión.
 # Devuelve: vector de mensajes de error, vacío si no se detectan errores.
 validate_simulation <- function(params, dose, dose_cmt, model_cmts,
                                 n_doses, interval, end_time,
-                                apply_param_rules = TRUE) {
+                                apply_param_rules = TRUE, infusion = 0) {
   errors <- character(0)
 
   if (length(model_cmts) == 0) {
@@ -86,6 +87,28 @@ validate_simulation <- function(params, dose, dose_cmt, model_cmts,
             "Aumenta el tiempo final."
           ),
           format((n_doses - 1) * interval)
+        )
+      )
+    }
+  }
+
+  # Duración de la infusión: 0 es un bolo. Con varias dosis, cada infusión
+  # debe terminar antes de la siguiente.
+  if (length(model_cmts) > 0) {
+    if (!is_valid_number(infusion) || infusion < 0) {
+      errors <- c(
+        errors,
+        "La duración de la infusión debe ser 0 (bolo) o un número positivo."
+      )
+    } else if (
+      valid_n && n_doses > 1 && is_valid_number(interval) &&
+        infusion > interval
+    ) {
+      errors <- c(
+        errors,
+        paste(
+          "La infusión no puede durar más que el intervalo entre dosis:",
+          "cada una debe terminar antes de la siguiente."
         )
       )
     }

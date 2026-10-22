@@ -69,30 +69,31 @@ get_user_model <- function(db, model_id, username) {
   result
 }
 
-# Normaliza la especificación guardada para evitar cargas corruptas.
-# Recibe: lista con la versión y la definición del modelo almacenada.
+# Prepara la especificación del modelo para guardarla en la base de datos.
+# Recibe: especificación del modelo.
+# Devuelve: lista serializable con la versión y el contenido del modelo.
+serialize_model_spec <- function(spec) {
+  list(
+    version = 2L,
+    params = spec$params,
+    initials = spec$initials,
+    auxiliary = spec$auxiliary,
+    equations = spec$equations,
+    outputs = spec$outputs
+  )
+}
+
+# Normaliza la especificación guardada y la valida para evitar cargas
+# corruptas.
+# Recibe: especificación guardada en la base de datos.
 # Devuelve: especificación válida lista para recompilar con mrgsolve.
 normalize_saved_spec <- function(spec) {
-
-  if (!is.list(spec) || !identical(spec$version, 1L)) {
+  if (!is.list(spec) || !identical(spec$version, 2L)) {
     stop("Versión de especificación no admitida.", call. = FALSE)
   }
-
-  scalar_text <- function(x) is.character(x) && length(x) == 1L && !is.na(x)
-
-  if (!scalar_text(spec$absorption) || !scalar_text(spec$ncmt) ||
-        !scalar_text(spec$elimination) || !is.list(spec$params)) {
-    stop("La especificación guardada no es válida.", call. = FALSE)
-  }
-
-  spec <- list(absorption = spec$absorption, ncmt = spec$ncmt,
-               elimination = spec$elimination, params = spec$params)
+  spec$version <- NULL
   problems <- validate_model_spec(spec)
-
   if (length(problems)) stop(paste(problems, collapse = "\n"), call. = FALSE)
-
-  spec$params <- spec$params[builder_param_names(spec)]
-
   spec
 }
 
@@ -212,12 +213,6 @@ save_user_model <- function(db, spec, mod, username) {
     as.character(jsonlite::toJSON(x, auto_unbox = TRUE, digits = NA))
   }
 
-  output_vars <- if (is_component_spec(spec)) {
-    spec$outputs
-  } else {
-    c(get_model_cmt(mod), "CP")
-  }
-
   DBI::dbGetQuery(
     db,
     "
@@ -234,7 +229,7 @@ save_user_model <- function(db, spec, mod, username) {
       generate_model_code(spec),
       json(spec$params),
       json(as.list(get_model_cmt(mod))),
-      json(as.list(output_vars)),
+      json(as.list(spec$outputs)),
       json(saved),
       username
     )
@@ -242,6 +237,8 @@ save_user_model <- function(db, spec, mod, username) {
 }
 
 # Actualiza el mismo registro y mantiene propietario y estado compartido.
+# Recibe: conexión, identificador del modelo, especificación del modelo,
+# objeto mrgsolve y usuario.
 update_user_model <- function(db, model_id, spec, mod, username) {
   require_database(db)
   problems <- validate_model_spec(spec, existing_ids = character(0))
@@ -252,12 +249,6 @@ update_user_model <- function(db, model_id, spec, mod, username) {
 
   json <- function(x) {
     as.character(jsonlite::toJSON(x, auto_unbox = TRUE, digits = NA))
-  }
-
-  output_vars <- if (is_component_spec(spec)) {
-    spec$outputs
-  } else {
-    c(get_model_cmt(mod), "CP")
   }
 
   changed <- DBI::dbExecute(
@@ -274,7 +265,7 @@ update_user_model <- function(db, model_id, spec, mod, username) {
       generate_model_code(spec),
       json(spec$params),
       json(as.list(get_model_cmt(mod))),
-      json(as.list(output_vars)),
+      json(as.list(spec$outputs)),
       json(saved),
       as.character(model_id),
       as.character(username)

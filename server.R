@@ -10,7 +10,7 @@
 # reactivo de la aplicación PKLaboratory.
 # ============================================================
 
-# Gestiona la lógica reactiva y conecta las entradas del usuario
+# Gestiona la lógica y conecta las entradas del usuario
 # con las simulaciones y la presentación de los resultados.
 # Recibe: entradas, salidas y sesión de Shiny.
 server <- function(input, output, session) {
@@ -29,9 +29,7 @@ server <- function(input, output, session) {
     }
   }
 
-  # Estado de la sesión. Los controladores se registran una sola vez al abrir
-  # la sesión; lo que cambia con cada usuario es este estado, que se carga al
-  # iniciar sesión y se vacía al cerrarla.
+  # Estado de la sesión.
   logged_in <- reactiveVal(FALSE)
   current_user <- reactiveVal(NULL)
 
@@ -47,6 +45,7 @@ server <- function(input, output, session) {
   session$onSessionEnded(function() remove_compiled_files(compile_prefix))
 
   navigation_controller(input, session)
+  help_controller(output)
 
   refresh_catalog <- shared_catalog_controller(
     input,
@@ -81,6 +80,9 @@ server <- function(input, output, session) {
     shared_cache
   )
   simulation <- simulation_controller(input, output, model)
+  population_controller(input, output, session, user_models, shared_models,
+                        shared_cache, database_pool, compile_prefix,
+                        current_user)
   # Nombre del modelo para mostrar (gráfico y descargas), no su id interno.
   current_model_label <- function(id) {
     model_label(
@@ -93,7 +95,6 @@ server <- function(input, output, session) {
 
   safe_main_app_ui <- function() {
     if (exists("main_app_ui", mode = "function")) {
-      # Sin isolate, cada cambio en los modelos redibujaría toda la página.
       return(main_app_ui(
         model_choices(
           shiny::isolate(user_models()),
@@ -114,7 +115,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$login_submit, {
-    if (is.null(auth_pool)) {
+    if (is.null(database_pool)) {
       showNotification(
         "La base de datos de autenticación no está configurada.",
         type = "error",
@@ -146,11 +147,9 @@ server <- function(input, output, session) {
       return()
     }
 
-    # Un fallo de la base de datos no es una contraseña incorrecta: se avisa
-    # por separado y no cuenta como intento fallido.
     db_error <- FALSE
     user <- tryCatch(
-      verify_user_credentials(auth_pool, username, password),
+      verify_user_credentials(database_pool, username, password),
       error = function(e) {
         message("[login] ", conditionMessage(e))
         db_error <<- TRUE

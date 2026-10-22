@@ -39,12 +39,6 @@ create_database_pool <- function() {
   )
 }
 
-# Crea el pool de autenticación usando el mismo PostgreSQL que el catálogo.
-# Devuelve: pool de conexiones preparado para la autenticación.
-create_auth_database_pool <- function() {
-  create_database_pool()
-}
-
 # Inicializa la tabla de usuarios para la autenticación en PostgreSQL.
 # No modifica una tabla que ya exista.
 # Recibe: conexión a la base de datos de usuarios.
@@ -157,24 +151,3 @@ verify_user_credentials <- function(db, username, password) {
 
 # Hash de relleno para comparar cuando el usuario no existe.
 dummy_password_hash <- hash_password("contraseña-de-relleno")
-
-# Da de alta un usuario con la contraseña ya protegida. Pensada para usarse
-# desde scripts/create_user.R, no desde la interfaz.
-# Recibe: pool de la base de datos, usuario, contraseña y nombre completo.
-# Devuelve: invisible(NULL); lanza un error si los datos no son válidos o el
-# usuario ya existe.
-create_app_user <- function(db, username, password, full_name = NA_character_) {
-  username <- trimws(username)
-  if (!nzchar(username)) stop("El usuario no puede estar vacío.", call. = FALSE)
-  if (!is.character(password) || nchar(password) < 8) {
-    stop("La contraseña debe tener al menos 8 caracteres.", call. = FALSE)
-  }
-
-  DBI::dbExecute(
-    db,
-    "INSERT INTO app_users (username, password_hash, full_name)
-     VALUES ($1, $2, $3)",
-    params = list(username, hash_password(password), as.character(full_name))
-  )
-  invisible(NULL)
-}

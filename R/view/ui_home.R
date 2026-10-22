@@ -7,8 +7,9 @@
 #
 # Descripción:
 # Contiene las funciones para construir la página de inicio de la
-# aplicación, con su presentación y los accesos a simulación y
-# creación de modelos.
+# aplicación: su presentación, los accesos a cada sección (simulación,
+# creación de modelos, análisis poblacional y modelos guardados) y los
+# pasos del análisis poblacional.
 # ============================================================
 
 # Ilustración de una curva concentración-tiempo con varias dosis.
@@ -46,165 +47,127 @@ hero_curve <- function() {
   ))
 }
 
-# Construye una tarjeta con un número, un título y una descripción.
-# Recibe: número del paso, título, texto y color de acento de la tarjeta.
-# Devuelve: tarjeta de bslib.
-home_card <- function(number, title, text, accent = "green") {
-  bslib::card(
-    class = paste("pk-feature", paste0("pk-accent-", accent)),
-    fill = FALSE,
-    bslib::card_body(
-      shiny::span(class = "pk-home-number", number),
-      shiny::h3(title),
-      shiny::p(text)
+# Icono de línea para las tarjetas de acceso.
+# Recibe: nombre del icono.
+# Devuelve: SVG decorativo.
+home_icon <- function(name) {
+  paths <- switch(
+    name,
+    simulation = paste0(
+      "<path d=\"M3 20 C6 20 6 6 9 6 S12 16 15 16 S18 9 21 9\"/>",
+      "<path d=\"M3 3v18h18\"/>"
+    ),
+    builder = paste0(
+      "<rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1.5\"/>",
+      "<rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1.5\"/>",
+      "<path d=\"M10 6.5h4.5a2 2 0 0 1 2 2V14\"/>"
+    ),
+    population = paste0(
+      "<circle cx=\"7\" cy=\"8\" r=\"3\"/>",
+      "<circle cx=\"17\" cy=\"8\" r=\"3\"/>",
+      "<path d=\"M2 20c0-3 2.2-5 5-5s5 2 5 5\"/>",
+      "<path d=\"M12 20c0-3 2.2-5 5-5s5 2 5 5\"/>"
+    ),
+    models = paste0(
+      "<path d=\"M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5",
+      "a2 2 0 0 1-2-2z\"/>",
+      "<path d=\"M8 13h8\"/>"
     )
   )
+  shiny::HTML(paste0(
+    "<svg class=\"pk-home-icon\" viewBox=\"0 0 24 24\" fill=\"none\" ",
+    "stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" ",
+    "stroke-linejoin=\"round\" aria-hidden=\"true\">",
+    paths, "</svg>"
+  ))
 }
 
-# Construye una pieza de la franja de datos de la portada.
-# Recibe: valor destacado y etiqueta.
-# Devuelve: elemento de la interfaz de Shiny.
-home_stat <- function(value, label) {
-  shiny::div(
-    class = "pk-stat",
-    shiny::span(class = "pk-stat-value", value),
-    shiny::span(class = "pk-stat-label", label)
+# Tarjeta de acceso a una sección: toda la tarjeta es un enlace.
+# Recibe: identificador del enlace, icono, título, texto y color de acento.
+# Devuelve: enlace de Shiny con forma de tarjeta.
+home_tool <- function(input_id, icon, title, text, accent) {
+  shiny::actionLink(
+    input_id,
+    class = paste("pk-home-tool", paste0("pk-accent-", accent)),
+    label = shiny::tagList(
+      shiny::span(class = "pk-home-tool-icon", home_icon(icon)),
+      shiny::span(class = "pk-home-tool-title", title),
+      shiny::span(class = "pk-home-tool-text", text),
+      shiny::span(class = "pk-home-tool-go", "Abrir →")
+    )
   )
 }
 
 # Construye la página de inicio de la aplicación.
 # Devuelve: conjunto de elementos de la interfaz de Shiny.
 home_ui <- function() {
-  shiny::tagList(
+  shiny::div(
+    class = "pk-home",
 
-    shiny::div(
-      class = "pk-home",
-
-      shiny::tags$section(
-        class = "pk-home-hero",
-        `aria-labelledby` = "pk-home-title",
-
-        shiny::div(
-          class = "pk-hero-text",
-
-          shiny::span(
-            class = "pk-home-eyebrow",
-            "Modelado y simulación farmacocinética"
-          ),
-
-          shiny::h1(id = "pk-home-title", "PKLaboratory"),
-
-          shiny::p(
-            class = "pk-home-lead",
-            "Explora cómo evoluciona un fármaco en el organismo.",
-            "Utiliza modelos de la biblioteca o crea el tuyo",
-            "y explora sus resultados mediante simulaciones."
-          ),
-
-          shiny::div(
-            class = "d-flex flex-wrap gap-3",
-            shiny::actionButton(
-              "go_to_simulation",
-              "Empezar a simular",
-              class = "btn btn-primary btn-lg pk-cta"
-            ),
-            shiny::actionButton(
-              "go_to_builder",
-              "Crear mi modelo",
-              class = "btn btn-outline-primary btn-lg pk-cta"
-            )
-          )
-        ),
-
-        shiny::div(class = "pk-hero-art", hero_curve())
-      ),
+    shiny::tags$section(
+      class = "pk-home-hero",
+      `aria-labelledby` = "pk-home-title",
 
       shiny::div(
-        class = "pk-stats",
-        home_stat(
-          shiny::textOutput("home_model_count", inline = TRUE),
-          "modelos · biblioteca y catálogo"
+        class = "pk-hero-text",
+        shiny::span(
+          class = "pk-home-eyebrow",
+          "Farmacocinética · simulación y análisis poblacional"
         ),
-        home_stat("A medida", "crea tus propios modelos"),
-        home_stat("Online", "desde cualquier navegador")
-      ),
-
-      shiny::tags$section(
-        class = "pk-home-section",
-        `aria-labelledby` = "pk-home-features",
-
-        shiny::h2(
-          id = "pk-home-features",
-          "Del modelo a los resultados"
-        ),
-
+        shiny::h1(id = "pk-home-title", "PKLaboratory"),
         shiny::p(
-          class = "pk-home-intro",
-          "Elige cómo empezar: explora la biblioteca o construye ",
-          "tu propio modelo."
-        ),
-
-        bslib::layout_column_wrap(
-          width = 1 / 3,
-          fill = FALSE,
-
-          home_card(
-            "01",
-            "Explora la biblioteca",
-            paste(
-              "Elige un modelo predefinido de mrgsolve, ajusta sus",
-              "parámetros y configura la administración del fármaco."
-            ),
-            "indigo"
-          ),
-
-          home_card(
-            "02",
-            "Crea tu propio modelo",
-            paste(
-              "Define la administración, la distribución y la eliminación.",
-              "Ajusta los parámetros y obtén el código automáticamente."
-            ),
-            "amber"
-          ),
-
-          home_card(
-            "03",
-            "Explora los resultados",
-            paste(
-              "Simula con el modelo elegido o creado, visualiza las curvas",
-              "y descarga los resultados en CSV o el gráfico en PNG."
-            ),
-            "violet"
-          )
+          class = "pk-home-lead",
+          "Simula cómo evoluciona un fármaco en el organismo con los modelos",
+          "de mrgsolve o con los que tú crees, y estima sus parámetros en una",
+          "población de pacientes con modelos de efectos mixtos no lineales."
         )
       ),
 
-      shiny::tags$section(
-        class = "pk-home-section pk-home-guide",
-        `aria-labelledby` = "pk-home-guide-title",
+      shiny::div(class = "pk-hero-art", hero_curve())
+    ),
 
-        shiny::h2(
-          id = "pk-home-guide-title",
-          "De tu idea a la simulación"
+    shiny::tags$section(
+      class = "pk-home-section",
+      `aria-labelledby` = "pk-home-tools-title",
+      shiny::div(
+        class = "pk-home-section-head pk-home-section-head-center",
+        shiny::h2(id = "pk-home-tools-title", "¿Qué puedes hacer?")
+      ),
+      shiny::div(
+        class = "pk-home-tools",
+        home_tool(
+          "home_open_simulation", "simulation", "Simulación",
+          paste(
+            "Elige un modelo de la biblioteca o uno tuyo, ajusta sus",
+            "parámetros y la pauta de dosis, y descarga las curvas en CSV",
+            "o PNG."
+          ),
+          "indigo"
         ),
-
-        shiny::tags$ol(
-          class = "pk-home-steps",
-          shiny::tags$li(
-            "En Crear modelo, elige un nombre y define su estructura."
+        home_tool(
+          "home_open_builder", "builder", "Crear modelo",
+          paste(
+            "Define la administración, la distribución y la eliminación, o",
+            "escribe tus propias ecuaciones. El código de mrgsolve se",
+            "genera solo."
           ),
-          shiny::tags$li(
-            "Ajusta sus parámetros y revisa el código generado."
+          "amber"
+        ),
+        home_tool(
+          "home_open_population", "population", "Análisis poblacional",
+          paste(
+            "Ajusta un modelo mixto no lineal a datos de varios pacientes,",
+            "como Theoph o Indometh, con cualquier modelo de la aplicación."
           ),
-          shiny::tags$li(
-            "Pulsa Guardar modelo: se guarda en tu cuenta y lo tendrás en",
-            "Simulación cada vez que inicies sesión."
+          "green"
+        ),
+        home_tool(
+          "home_open_models", "models", "Mis modelos",
+          paste(
+            "Consulta, edita y comparte los modelos que has creado. Los",
+            "compartidos aparecen en el catálogo de todos los usuarios."
           ),
-          shiny::tags$li(
-            "Selecciona tu modelo, configura la dosis y el tiempo final,",
-            "y pulsa Simular."
-          )
+          "violet"
         )
       )
     )

@@ -11,8 +11,9 @@
 # pasarlo a la simulación.
 # ============================================================
 
-# Devuelve el texto sin espacios sobrantes, o "" si no hay valor.
+# Limpia el valor de un campo de texto.
 # Recibe: valor de un campo de texto (puede ser NULL).
+# Devuelve: el texto sin espacios sobrantes, o "" si no hay valor.
 clean_text <- function(x) {
   if (is.null(x)) "" else trimws(x)
 }
@@ -198,47 +199,45 @@ builder_controller <- function(input, output, session, user_models,
   output$bld_my_models <- renderUI({
     models <- user_models()
     if (!length(models)) {
-      return(p(class = "pk-table-note", "Aún no has creado ningún modelo."))
+      return(page_empty(
+        "Aún no has creado ningún modelo",
+        "Crea uno con «+ Crear modelo nuevo»: aparecerá aquí y en Simulación."
+      ))
     }
 
-    tagList(lapply(names(models), function(id) {
+    # Una tarjeta por modelo: nombre y estado, descripción y acciones.
+    div(class = "pk-model-grid", lapply(names(models), function(id) {
       m <- models[[id]]
       shared <- isTRUE(m$is_shared)
+      status <- if (!isTRUE(m$saved)) {
+        c("Solo en esta sesión", "")
+      } else if (shared) {
+        c("En el catálogo", "pk-pop-badge-ok")
+      } else {
+        c("Privado", "")
+      }
 
-      bslib::card(
-        class = "pk-card",
-        fill = FALSE,
-        bslib::card_body(
-          div(
-            class = paste(
-              "d-flex flex-wrap justify-content-between",
-              "align-items-center gap-3"
-            ),
-            div(
-              h3(class = "h5 mb-1", m$label),
-              p(class = "pk-model-summary mb-1", m$summary),
-              if (nzchar(m$description)) {
-                p(class = "pk-model-summary mb-1", m$description)
-              },
-              span(
-                class = "badge rounded-pill bg-light text-dark",
-                if (!isTRUE(m$saved)) "Solo en esta sesión"
-                else if (shared) "En el catálogo"
-                else "Privado"
-              )
-            ),
-            div(
-              class = "d-flex flex-wrap gap-2",
-              row_button(id, "model_edit", "Editar", "btn-outline-primary"),
-              row_button(id, "model_delete", "Eliminar", "btn-outline-danger"),
-              row_button(
-                id,
-                if (shared) "model_unpublish" else "model_publish",
-                if (shared) "Retirar del catálogo" else "Añadir al catálogo",
-                "btn-outline-secondary"
-              )
-            )
-          )
+      div(
+        class = "pk-model-card",
+        div(
+          class = "pk-model-card-head",
+          h3(m$label),
+          span(class = paste("pk-pop-badge", status[[2]]), status[[1]])
+        ),
+        p(class = "pk-model-summary", m$summary),
+        if (nzchar(m$description)) {
+          p(class = "pk-model-summary pk-model-description", m$description)
+        },
+        div(
+          class = "pk-model-card-actions",
+          row_button(id, "model_edit", "Editar", "btn-outline-primary"),
+          row_button(
+            id,
+            if (shared) "model_unpublish" else "model_publish",
+            if (shared) "Retirar del catálogo" else "Añadir al catálogo",
+            "btn-outline-secondary"
+          ),
+          row_button(id, "model_delete", "Eliminar", "btn-outline-danger")
         )
       )
     }))

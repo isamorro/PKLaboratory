@@ -59,7 +59,7 @@ results_controller <- function(input, output, session, simulation,
     shiny::req(input$simulate > 0)
 
     data <- simulation()
-    head(data, 10)
+    head(data, 150)
   }, striped = TRUE, hover = TRUE, spacing = "s", width = "100%")
 
   # Descarga de todos los resultados.

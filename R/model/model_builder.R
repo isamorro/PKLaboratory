@@ -6,84 +6,18 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Contiene las funciones para crear modelos propios: validar la
-# especificación que elige el usuario, generar el código de mrgsolve
-# a partir de ella y compilarlo. El usuario nunca escribe código: solo
-# elige opciones de listas cerradas y valores numéricos, de modo que
-# el código que se compila lo genera siempre la aplicación.
+# Construye y valida modelos farmacocinéticos por componentes, con expresiones
+# matemáticas analizadas y convertidas a código C++ sin evaluar código R, y
+# compila el código de mrgsolve generado a partir de ellos.
 # ============================================================
 
-# Opciones de estructura del modelo (etiqueta = valor).
-absorption_options <- c(
-  "Intravenosa (bolo)" = "iv",
-  "Oral (primer orden)" = "oral"
-)
-
-ncmt_options <- c(
-  "1 compartimento" = "1",
-  "2 compartimentos" = "2"
-)
-
-elimination_options <- c(
-  "Lineal" = "linear",
-  "Michaelis-Menten (saturable)" = "mm"
-)
-
-# Parámetros que puede tener un modelo: descripción corta y valor inicial.
-builder_params <- list(
-  CL   = list(short = "aclaramiento", default = 5),
-  VMAX = list(short = "velocidad máxima", default = 50),
-  KM   = list(short = "constante de M-M", default = 10),
-  V    = list(short = "volumen central", default = 50),
-  Q    = list(short = "aclar. intercomp.", default = 10),
-  VP   = list(short = "volumen periférico", default = 100),
-  KA   = list(short = "absorción", default = 1)
-)
-
 # Límites de los datos que introduce el usuario.
-max_param_value <- 1e6
 max_name_length <- 30
 max_description_length <- 200
 
 # Un nombre empieza por una letra y solo admite letras sin tilde, números,
 # espacios, guiones y guiones bajos.
 name_pattern <- "^[A-Za-z][A-Za-z0-9 _-]*$"
-
-# Obtiene los parámetros que necesita un modelo según su estructura.
-# Recibe: especificación (con absorption, ncmt y elimination).
-# Devuelve: vector con los nombres de los parámetros.
-builder_param_names <- function(spec) {
-  c(
-    if (spec$elimination == "mm") c("VMAX", "KM") else "CL",
-    "V",
-    if (as.integer(spec$ncmt) == 2L) c("Q", "VP"),
-    if (spec$absorption == "oral") "KA"
-  )
-}
-
-# Obtiene los valores iniciales de unos parámetros.
-# Recibe: vector con los nombres de los parámetros.
-# Devuelve: lista con los nombres y valores iniciales.
-builder_default_params <- function(param_names) {
-  stats::setNames(
-    lapply(param_names, function(name) builder_params[[name]]$default),
-    param_names
-  )
-}
-
-# Obtiene las etiquetas para mostrar los parámetros en el formulario.
-# Recibe: vector con los nombres de los parámetros.
-# Devuelve: vector con las etiquetas, con los nombres como nombres.
-builder_param_labels <- function(param_names) {
-  stats::setNames(
-    vapply(
-      param_names,
-      function(name) paste0(name, " (", builder_params[[name]]$short, ")"),
-      character(1)
-    ),
-    param_names
-  )
-}
 
 # Obtiene el identificador de un modelo a partir de su nombre. Solo contiene
 # letras, números y guiones bajos, así que se puede usar en nombres de archivo.
@@ -147,133 +81,281 @@ check_model_name <- function(name, description, existing_ids) {
   errors
 }
 
-# Comprueba la especificación de un modelo antes de generar su código.
-# Recibe: especificación (lista con absorption, ncmt, elimination, params y,
-# si se comprueba el nombre, name y description) e identificadores ya
-# existentes. Si existing_ids es NULL no se comprueba el nombre.
-# Devuelve: vector de mensajes de error, vacío si no se detectan errores.
+# Convierte una expresión matemática a C++ a partir de un árbol validado.
+# No admite asignaciones, índices, namespaces, llamadas arbitrarias ni cadenas.
+# Recibe: cadena con la expresión matemática y vector de símbolos autorizados.
+# Devuelve: texto equivalente en C++ listo para inyectarse en el modelo.
+math_cpp <- function(text, symbols) {
+  if (
+    !is.character(text) || length(text) != 1L || is.na(text) ||
+      nchar(text) > 1000L
+  ) {
+    stop("Expresión vacía o demasiado larga.")
+  }
+  ast <- tryCatch(parse(text = text, keep.source = FALSE),
+    error = function(e) stop("Expresión matemática no válida.")
+  )
+  if (length(ast) != 1L) stop("Introduce una sola expresión matemática.")
+  count <- 0L
+  visit <- function(x, depth = 0L) {
+    count <<- count + 1L
+    if (depth > 40L || count > 250L) stop("Expresión demasiado compleja.")
+    if ((is.double(x) || is.integer(x)) && length(x) == 1L && is.finite(x)) {
+      return(format(x,
+        digits = 17, scientific = TRUE, trim = TRUE,
+        decimal.mark = "."
+      ))
+    }
+    if (is.name(x)) {
+      name <- as.character(x)
+      if (!name %in% symbols) stop(paste("Variable desconocida:", name))
+      return(name)
+    }
+    if (!is.call(x) || !is.name(x[[1]])) stop("Elemento no admitido.")
+    op <- as.character(x[[1]])
+    args <- as.list(x)[-1L]
+    if (!is.null(names(args)) && any(nzchar(names(args)))) {
+      stop("No se admiten argumentos con nombre.")
+    }
+    arity <- length(args)
+    binary <- c(
+      "+", "-", "*", "/", "^", "<", "<=", ">", ">=",
+      "==", "!=", "&&", "||"
+    )
+    unary <- c("+", "-", "!")
+    funcs <- c(
+      exp = 1L, log = 1L, log10 = 1L, sqrt = 1L, abs = 1L,
+      sin = 1L, cos = 1L, tan = 1L, floor = 1L, ceiling = 1L,
+      min = 2L, max = 2L, pow = 2L, ifelse = 3L
+    )
+    if (op == "(" && arity == 1L) {
+      return(paste0("(", visit(args[[1]], depth + 1L), ")"))
+    }
+    valid <- (op %in% binary && arity == 2L) ||
+      (op %in% unary && arity == 1L) ||
+      (op %in% names(funcs) && arity == funcs[[op]])
+    if (!valid) stop(paste("Operación o número de argumentos no admitido:", op))
+    a <- vapply(args, visit, character(1), depth = depth + 1L)
+    if (op %in% unary && arity == 1L) {
+      return(paste0("(", op, a, ")"))
+    }
+    if (op == "^" || op == "pow") {
+      return(paste0("std::pow(", paste(a, collapse = ", "), ")"))
+    }
+    if (op %in% binary) {
+      return(paste0("(", a[1], " ", op, " ", a[2], ")"))
+    }
+    if (op == "ifelse") {
+      return(paste0("(", a[1], " ? ", a[2], " : ", a[3], ")"))
+    }
+    cpp <- switch(op,
+      abs = "fabs",
+      ceiling = "ceil",
+      min = "fmin",
+      max = "fmax",
+      op
+    )
+    paste0("std::", cpp, "(", paste(a, collapse = ", "), ")")
+  }
+  visit(ast[[1]])
+}
+
+# Nombres deliberadamente acotados para no colisionar con C++ o mrgsolve.
+# Recibe: vector con nombres de variables, parámetros y compartimentos.
+# Devuelve: valor lógico indicando qué nombres son válidos para el modelo.
+valid_component_names <- function(n) {
+  reserved <- c(
+    "TIME", "SOLVERTIME", "ID", "EVID", "AMT", "CMT", "NEWIND", "SS",
+    "F", "R", "D", "ALAG", "double", "int", "float", "bool", "void", "char",
+    "long", "short", "unsigned", "signed", "auto", "const", "static", "extern",
+    "class", "struct", "enum", "union", "typedef", "using", "namespace", "std",
+    "if", "else", "for", "while", "do", "switch", "case", "default", "break",
+    "continue", "return", "goto", "new", "delete", "this", "true", "false",
+    "nullptr", "sizeof", "template", "typename",
+    "public", "private", "protected",
+    "try", "catch", "throw", "operator", "virtual", "inline", "volatile",
+    "register", "restrict", "asm", "explicit", "friend", "mutable", "constexpr",
+    "thread_local", "noexcept", "alignas", "alignof", "decltype", "wchar_t",
+    "and", "or", "not", "xor", "bitand", "bitor", "compl", "and_eq", "or_eq",
+    "not_eq", "xor_eq", "NULL", "NA", "Inf", "NaN", "capture", "self",
+    "simeta", "simeps", "ETA", "EPS", "THETA", "TAD", "SYSTEM", "table",
+    "exp", "log", "log10", "sqrt", "abs", "sin", "cos", "tan", "floor",
+    "ceiling", "min", "max", "pow", "ifelse"
+  )
+  grepl("^[A-Za-z][A-Za-z0-9_]{0,29}$", n) & !n %in% reserved &
+    !grepl("^(dxdt_|F_|R_|D_|ALAG_|N_|A_0_|pred_)", n)
+}
+
+# Valida una especificación de modelo por componentes.
+# Recibe: especificación del modelo y, opcionalmente, identificadores ya
+# usados para comprobar nombres duplicados.
+# Devuelve: vector de errores de validación; si todo es correcto, devuelve
+# un vector vacío.
 validate_model_spec <- function(spec, existing_ids = NULL) {
-
-  errors <- character(0)
-
+  errors <- character()
   if (!is.null(existing_ids)) {
     errors <- check_model_name(spec$name, spec$description, existing_ids)
   }
 
-  valid_structure <-
-    isTRUE(spec$absorption %in% absorption_options) &&
-    isTRUE(as.character(spec$ncmt) %in% ncmt_options) &&
-    isTRUE(spec$elimination %in% elimination_options)
-
-  if (!valid_structure) {
-    return(c(errors, "Elige una estructura de modelo válida."))
+  groups <- list(spec$params, spec$initials, spec$auxiliary, spec$equations)
+  if (!all(vapply(groups, is.list, logical(1)))) {
+    return(c(errors, "Componentes no válidos."))
   }
 
-  needed <- builder_param_names(spec)
-  params <- stats::setNames(
-    lapply(needed, function(name) spec$params[[name]]),
-    needed
-  )
-
-  invalid <- needed[!vapply(params, is_valid_number, logical(1))]
-  if (length(invalid) > 0) {
-    errors <- c(
+  if (
+    length(spec$params) > 50L || length(spec$initials) < 1L ||
+      length(spec$initials) > 30L || length(spec$auxiliary) > 50L
+  ) {
+    return(c(
       errors,
-      paste0(
-        "Estos parámetros están vacíos o no son números: ",
-        paste(invalid, collapse = ", "), "."
+      paste(
+        "Máximos: 50 parámetros, 30 compartimentos y 50 auxiliares;",
+        "mínimo un compartimento."
       )
+    ))
+  }
+
+  declared <- c(names(spec$params), names(spec$initials), names(spec$auxiliary))
+  if (
+    length(declared) != sum(vapply(groups[1:3], length, integer(1))) ||
+      any(!valid_component_names(declared)) || anyDuplicated(declared)
+  ) {
+    return(c(
+      errors,
+      paste(
+        "Usa nombres únicos, no reservados, de hasta 30 caracteres:",
+        "letras, números y guion bajo; empieza por letra."
+      )
+    ))
+  }
+
+  numeric_values <- c(spec$params, spec$initials)
+  if (any(!vapply(numeric_values, is_valid_number, logical(1)))) {
+    return(c(
+      errors,
+      "Los parámetros y las cantidades iniciales deben ser números finitos."
+    ))
+  }
+
+  if (
+    !setequal(names(spec$initials), names(spec$equations)) ||
+      anyDuplicated(names(spec$equations)) ||
+      length(spec$equations) != length(spec$initials)
+  ) {
+    return(c(
+      errors,
+      "Define exactamente una derivada para cada compartimento."
+    ))
+  }
+
+  symbols <- c(names(spec$params), names(spec$initials), "TIME", "SOLVERTIME")
+  check <- function(text, label) {
+    tryCatch(
+      {
+        math_cpp(text, symbols)
+        character()
+      },
+      error = function(e) paste0(label, ": ", conditionMessage(e))
     )
   }
 
-  valid <- params[!names(params) %in% invalid]
-  errors <- c(errors, check_param_rules(valid))
+  for (n in names(spec$auxiliary)) {
+    errors <- c(errors, check(spec$auxiliary[[n]], paste("Auxiliar", n)))
+    symbols <- c(symbols, n)
+  }
+  for (n in names(spec$equations)) {
+    errors <- c(errors, check(spec$equations[[n]], paste("Derivada", n)))
+  }
 
-  too_big <- names(valid)[vapply(
-    valid, function(x) x > max_param_value, logical(1)
-  )]
-  if (length(too_big) > 0) {
+  if (
+    !is.character(spec$outputs) || !length(spec$outputs) ||
+      anyDuplicated(spec$outputs) || !all(spec$outputs %in% declared)
+  ) {
     errors <- c(
       errors,
-      paste0(
-        "Estos parámetros no pueden superar ", format(max_param_value),
-        ": ", paste(too_big, collapse = ", "), "."
-      )
+      "Selecciona al menos una salida existente, sin repeticiones."
     )
   }
 
   errors
 }
 
-# Genera el código de mrgsolve de un modelo. Solo debe llamarse con una
-# especificación que haya pasado validate_model_spec().
-# Recibe: especificación del modelo.
-# Devuelve: texto con el código del modelo.
+# Genera el código mrgsolve a partir de una especificación por componentes,
+# manteniendo los cálculos auxiliares y las ecuaciones diferenciales en el
+# formato que acepta el compilador del modelo.
+# Recibe: especificación del modelo construida por componentes.
+# Devuelve: cadena de texto con el bloque de modelo listo para compilar.
 generate_model_code <- function(spec) {
+  errors <- validate_model_spec(spec)
+  if (length(errors)) stop(paste(errors, collapse = "\n"))
 
-  oral <- spec$absorption == "oral"
-  two_cmt <- as.integer(spec$ncmt) == 2L
-  saturable <- spec$elimination == "mm"
-
-  param_names <- builder_param_names(spec)
-  param_lines <- vapply(
-    param_names,
-    function(name) sprintf("%s = %.15g", name, spec$params[[name]]),
-    character(1)
-  )
-
-  cmts <- c(if (oral) "DEPOT", "CENT", if (two_cmt) "PERIPH")
-
-  # Ecuación del compartimento central: se escribe término a término.
-  elimination <- if (saturable) {
-    "- VMAX*CONC/(KM + CONC)"
-  } else {
-    "- (CL/V)*CENT"
+  values <- function(x) {
+    vapply(names(x), function(n) {
+      paste0(
+        n, " = ",
+        format(
+          x[[n]],
+          digits = 17,
+          scientific = TRUE,
+          trim = TRUE,
+          decimal.mark = "."
+        )
+      )
+    }, character(1))
   }
-  central_terms <- c(
-    if (oral) "KA*DEPOT",
-    elimination,
-    if (two_cmt) c("- (Q/V)*CENT", "+ (Q/VP)*PERIPH")
-  )
-  central <- sub("^- ", "-", paste(central_terms, collapse = " "))
 
-  ode <- c(
-    if (saturable) "double CONC = CENT/V;",
-    if (oral) "dxdt_DEPOT = -KA*DEPOT;",
-    paste0("dxdt_CENT = ", central, ";"),
-    if (two_cmt) "dxdt_PERIPH = (Q/V)*CENT - (Q/VP)*PERIPH;"
-  )
+  symbols <- c(names(spec$params), names(spec$initials), "TIME", "SOLVERTIME")
+  aux <- character()
+  for (n in names(spec$auxiliary)) {
+    aux <- c(aux, paste0(n, " = ", math_cpp(spec$auxiliary[[n]], symbols), ";"))
+    symbols <- c(symbols, n)
+  }
 
+  ode <- vapply(names(spec$equations), function(n) {
+    paste0(
+      "dxdt_", n, " = ",
+      math_cpp(spec$equations[[n]], symbols), ";"
+    )
+  }, character(1))
+
+  # Auxiliares declarados una sola vez y recalculados en ODE y TABLE.
   paste(
     c(
-      "$PARAM", param_lines,
+      "// Generado por PKLaboratory: expresiones matemáticas validadas",
+      if (length(spec$params)) c("$PARAM", values(spec$params), ""),
+      "$INIT",
+      values(spec$initials),
       "",
-      paste("$CMT", paste(cmts, collapse = " ")),
-      "",
-      "$ODE", ode,
+      if (length(aux)) {
+        c("$GLOBAL", paste0("double ", names(spec$auxiliary), ";"), "")
+      },
+      "$ODE",
+      gsub("\\bTIME\\b", "SOLVERTIME", aux),
+      gsub("\\bTIME\\b", "SOLVERTIME", ode),
       "",
       "$TABLE",
-      "double CP = CENT/V;",
+      gsub("\\bSOLVERTIME\\b", "TIME", aux),
       "",
-      "$CAPTURE CP"
+      if (length(setdiff(spec$outputs, names(spec$initials)))) {
+        c(
+          "$CAPTURE",
+          paste(setdiff(spec$outputs, names(spec$initials)), collapse = " ")
+        )
+      }
     ),
     collapse = "\n"
   )
 }
 
-# Resume la estructura de un modelo en una frase corta.
+# Devuelve un resumen legible de la especificación para la interfaz y la
+# navegación entre modelos guardados.
 # Recibe: especificación del modelo.
-# Devuelve: texto, por ejemplo "Oral · 2 compartimentos · eliminación lineal".
+# Devuelve: texto descriptivo con número de compartimentos y parámetros.
 describe_spec <- function(spec) {
-  n_cmt <- as.integer(spec$ncmt)
-
-  paste(
-    c(iv = "Intravenosa", oral = "Oral")[[spec$absorption]],
-    paste(n_cmt, if (n_cmt == 1L) "compartimento" else "compartimentos"),
-    c(linear = "eliminación lineal", mm = "eliminación saturable")[[
-      spec$elimination
-    ]],
-    sep = " · "
+  sprintf(
+    "Ecuaciones propias · %d compartimentos · %d parámetros",
+    length(spec$initials),
+    length(spec$params)
   )
 }
 
@@ -309,6 +391,9 @@ compile_user_model <- function(spec, internal_name) {
     stop(unstable_model_error, call. = FALSE)
   }
 
+  # Las ecuaciones propias no dan significado a nombres como CL o V, así que
+  # al simular no se aplican las reglas de los parámetros del catálogo.
+  attr(mod, "pk_components") <- TRUE
   mod
 }
 

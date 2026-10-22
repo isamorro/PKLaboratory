@@ -11,9 +11,6 @@
 # así como la vista previa del código generado.
 # ============================================================
 
-# Prefijo de los campos del formulario de creación de modelos.
-builder_param_prefix <- "bld_param_"
-
 # Genera un ejemplo de modelo por componentes para inicializar el constructor.
 # Devuelve: lista con nombre, descripción, parámetros, compartimentos,
 # auxiliares, ecuaciones y salidas por defecto.
@@ -54,7 +51,6 @@ component_card <- function(number, title, hint, ..., accent = "green") {
 # Recibe: prefijo para formar ids de entrada y especificación inicial.
 # Devuelve: div de Shiny con el formulario completo del modelo por componentes.
 component_form <- function(prefix, spec = component_example()) {
-  spec <- as_component_spec(spec)
   id <- function(x) paste0(prefix, x)
   pairs <- function(x) {
     paste(vapply(names(x), function(n) paste(n, "=", x[[n]]), character(1)),
@@ -64,25 +60,26 @@ component_form <- function(prefix, spec = component_example()) {
 
   shiny::div(
     class = "pk-component-form",
+    # Nombre y descripción como título del modelo: se escriben directamente,
+    # sin cajas (las etiquetas quedan para los lectores de pantalla).
     bslib::card(
       class = "pk-component-identity",
       fill = FALSE,
-      bslib::card_header(shiny::h3("Dale nombre a tu modelo")),
       bslib::card_body(
         shiny::textInput(
           id("name"), "Nombre del modelo",
           value = spec$name,
-          placeholder = paste(
-            "Por ejemplo:",
-            "AbsorcionTresCompartimentos"
-          ),
+          placeholder = "Nombre del modelo, p. ej. AbsorcionTresCompartimentos",
           width = "100%"
         ),
         shiny::textAreaInput(
           id("description"), "Descripción (opcional)",
           value = spec$description,
-          placeholder = "Describe qué representa y cuándo utilizarlo.",
-          rows = 2, width = "100%", resize = "vertical"
+          placeholder = paste(
+            "Añade una descripción: qué representa y cuándo utilizarlo",
+            "(opcional)"
+          ),
+          rows = 1, width = "100%", resize = "none"
         )
       )
     ),
@@ -174,76 +171,59 @@ component_form <- function(prefix, spec = component_example()) {
   )
 }
 
-# Página de creación: formulario a la izquierda y vista previa a la derecha.
+# Página de creación, con la disposición común de las páginas de trabajo
+# (layout.R): el formulario a la izquierda y, a la derecha, un panel con el
+# código generado y los botones para descargarlo y guardar el modelo.
 # Devuelve: UI de la vista del constructor del modelo.
 builder_ui <- function() {
-  shiny::div(
-    class = "pk-sim pk-builder pk-builder-studio",
-    shiny::tags$header(
-      class = "pk-builder-heading",
-      shiny::span(class = "pk-builder-eyebrow", "TU MODELO, TUS ECUACIONES"),
-      shiny::h2("Crea un modelo farmacocinético"),
-      shiny::p(
-        paste(
-          "Define sus componentes y observa cómo se construye",
-          "el código de mrgsolve."
-        )
+  page_container(
+    class = "pk-builder-studio",
+    page_bar(
+      "Crear modelo",
+      subtitle = paste(
+        "Define tu modelo por componentes;",
+        "el código de mrgsolve se genera solo."
       )
     ),
-    shiny::div(
-      class = "pk-builder-workspace",
-      shiny::div(
-        class = "pk-builder-fields",
-        shiny::uiOutput("bld_errors"),
-        component_form("bld_")
-      ),
-      shiny::tags$aside(
-        class = "pk-builder-preview",
-        `aria-label` = "Vista previa y guardado del modelo",
-        bslib::card(
-          class = "pk-builder-code-card", fill = FALSE,
-          bslib::card_header(
-            shiny::div(
-              shiny::span(class = "pk-builder-eyebrow", "VISTA PREVIA"),
-              shiny::h3("Código generado")
-            ),
-            shiny::span(class = "pk-builder-filetype", ".cpp")
-          ),
-          bslib::card_body(
-            shiny::p(
-              class = "pk-component-hint",
-              "Se actualiza al modificar el formulario."
-            ),
-            shiny::verbatimTextOutput("bld_code")
-          ),
-          bslib::card_footer(
+    page_workspace(
+      panel_right = TRUE,
+      page_panel(
+        class = "pk-builder-panel",
+        shiny::div(
+          class = "pk-builder-panel-head",
+          shiny::h4("Código generado"),
+          shiny::span(class = "pk-builder-filetype", ".cpp")
+        ),
+        shiny::p(
+          class = "pk-component-note",
+          "Se actualiza al modificar el formulario."
+        ),
+        shiny::verbatimTextOutput("bld_code"),
+        footer = shiny::tagList(
+          shiny::div(
+            class = "pk-pop-panel-actions",
             shiny::downloadButton(
               "bld_download",
               "Descargar .cpp",
-              class = "btn-outline-secondary"
+              class = "btn-outline-primary"
+            ),
+            shiny::actionButton(
+              "bld_add",
+              "Guardar modelo",
+              class = "btn-primary"
             )
-          )
-        ),
-        shiny::div(
-          class = "pk-builder-save",
-          shiny::h3("¿Listo para probarlo?"),
+          ),
           shiny::p(
+            class = "pk-pop-panel-hint",
             paste(
-              "Al guardar se valida y compila el modelo,",
-              "y se realiza una simulación de prueba."
+              "Al guardar se valida, se compila y se prueba;",
+              "queda en Mis modelos como privado."
             )
-          ),
-          shiny::actionButton(
-            "bld_add",
-            "Guardar modelo",
-            class = "btn-primary w-100 pk-builder-save-button"
-          ),
-          shiny::p(
-            class = "pk-component-note",
-            "Se guardará en Mis modelos como privado."
           )
         )
-      )
+      ),
+      shiny::uiOutput("bld_errors"),
+      component_form("bld_")
     )
   )
 }

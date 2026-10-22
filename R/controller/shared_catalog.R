@@ -20,13 +20,6 @@
 shared_catalog_controller <- function(input, output, session, user_models,
                                       shared_models, db, selected_model_id,
                                       current_user) {
-  status <- reactiveVal("Consultando catálogo…")
-
-  # Total de modelos predefinidos y compartidos en el catálogo.
-  output$home_model_count <- shiny::renderText({
-    length(list_models()) + nrow(shared_models())
-  })
-
   # Consulta la base de datos y actualiza los modelos propios y los
   # compartidos del usuario actual.
   refresh <- function() {
@@ -43,20 +36,12 @@ shared_catalog_controller <- function(input, output, session, user_models,
         shiny::isolate(user_models()),
         rows[mine, , drop = FALSE]
       ))
-      status("Catálogo actualizado.")
       TRUE
     }, error = function(e) {
       message("[catálogo] ", conditionMessage(e))
-      status(
-        paste(
-          "No se pudo consultar la base de datos. Puedes seguir usando la",
-          "biblioteca y los modelos de esta sesión."
-        )
-      )
       FALSE
     })
   }
-  observeEvent(input$shared_refresh, refresh())
 
   # El modelo elegido en el selector es el modelo seleccionado. Así, cuando el
   # catálogo cambia, el selector se actualiza sin perder lo que había elegido.

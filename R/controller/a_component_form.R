@@ -1,5 +1,5 @@
 # ============================================================
-# Archivo: component_form.R
+# Archivo: a_component_form.R
 # Autor: Isabel Morro Tabares
 # Proyecto: TFG – PKLaboratory
 # Aplicación Shiny para simulación farmacocinética con mrgsolve
@@ -8,7 +8,7 @@
 # Descripción:
 # Define la lectura y validación del bloque de formulario de un componente.
 # Se encarga de convertir cadenas tipo "nombre = valor" en listas de
-# parámetros, condiciones iniciales, ecuaciones y salidas de salida,
+# parámetros, condiciones iniciales, ecuaciones y variables de salida,
 # manteniendo el mismo patrón de estilo que el resto de controladores.
 #
 # El prefijo "a_" hace que este archivo se cargue antes que los demás
