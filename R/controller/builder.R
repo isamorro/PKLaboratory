@@ -6,17 +6,11 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Gestiona la creación y el borrado de modelos propios, mantiene el
-# catálogo local y valida, compila y guarda cada modelo antes de
-# pasarlo a la simulación.
+# Gestiona la creación (con el editor de código de mrgsolve y el asistente
+# por componentes) y el borrado de modelos propios, mantiene el catálogo
+# local y valida, compila y guarda cada modelo antes de pasarlo a la
+# simulación.
 # ============================================================
-
-# Limpia el valor de un campo de texto.
-# Recibe: valor de un campo de texto (puede ser NULL).
-# Devuelve: el texto sin espacios sobrantes, o "" si no hay valor.
-clean_text <- function(x) {
-  if (is.null(x)) "" else trimws(x)
-}
 
 # Gestiona la creación y el borrado de modelos propios.
 # Recibe: entradas, salidas y sesión de Shiny, reactiveVal con los modelos
@@ -49,7 +43,12 @@ builder_controller <- function(input, output, session, user_models,
   )
 
   errors <- reactiveVal(character())
-  model_spec <- reactive(read_component_form(input, "bld_"))
+  wizard_errors <- reactiveVal(character())
+  reject_save <- error_reporter(errors, "No se ha guardado el modelo")
+  reject_file <- error_reporter(errors, "No se ha cargado el archivo")
+  reject_wizard <- error_reporter(wizard_errors, "No se ha generado el código")
+
+  model_spec <- reactive(read_model_form(input, "bld_"))
 
   checked_code <- reactive({
     spec <- model_spec()
@@ -59,32 +58,81 @@ builder_controller <- function(input, output, session, user_models,
       stop(paste(problems, collapse = "\n"), call. = FALSE)
     }
 
-    generate_model_code(spec)
+    spec$code
   })
 
-  # Código generado, o los puntos que hay que corregir para obtenerlo.
+  # Bloques encontrados en el código, o los problemas que hay que corregir.
   output$bld_code <- renderText({
     tryCatch(
-      checked_code(),
+      paste0(
+        "Sin problemas detectados.\n\nBloques:\n",
+        paste0("  $", model_code_blocks(checked_code()), collapse = "\n"),
+        "\n\nAl guardar se compila y se prueba con una dosis."
+      ),
       error = function(e) {
-        paste("Revisa el formulario:", conditionMessage(e))
+        paste0("Revisa el código:\n- ",
+               gsub("\n", "\n- ", conditionMessage(e)))
       }
     )
   })
 
-  # Único lugar donde se muestran los errores de esta página (caja roja).
-  output$bld_errors <- renderUI({
-    messages <- errors()
-    if (length(messages) == 0) {
-      return(NULL)
+  # Abre el asistente por componentes.
+  observeEvent(input$bld_wizard, {
+    wizard_errors(character())
+    shiny::showModal(component_wizard_modal())
+  })
+
+  output$wiz_errors <- renderUI(error_box(wizard_errors()))
+
+  # Genera el código con los componentes del asistente y lo lleva al editor.
+  observeEvent(input$wiz_generate, {
+    code <- tryCatch(
+      generate_component_code(read_component_form(input, "wiz_")),
+      error = function(e) {
+        reject_wizard(conditionMessage(e))
+        NULL
+      }
+    )
+    if (is.null(code)) {
+      return()
+    }
+    updateTextAreaInput(session, "bld_code_text", value = code)
+    errors(character())
+    removeModal()
+  })
+
+  # Carga un archivo .cpp en el editor de código.
+  observeEvent(input$bld_code_file, {
+    file <- input$bld_code_file
+    shiny::req(file)
+
+    if (file$size > max_code_length) {
+      reject_file(paste0("El archivo no puede superar ", max_code_length,
+                         " caracteres."))
+      return()
+    }
+    code <- tryCatch(
+      paste(readLines(file$datapath, warn = FALSE, encoding = "UTF-8"),
+            collapse = "\n"),
+      error = function(e) NULL
+    )
+    if (is.null(code) || !validUTF8(code)) {
+      reject_file("No se pudo leer el archivo. Debe ser un archivo de texto.")
+      return()
     }
 
-    div(
-      class = "alert alert-danger",
-      role = "alert",
-      lapply(messages, div)
-    )
+    errors(character())
+    updateTextAreaInput(session, "bld_code_text", value = code)
+    if (!nzchar(clean_text(input$bld_name))) {
+      name <- sub("\\.[^.]*$", "", file$name)
+      if (is_valid_model_name(name)) {
+        updateTextInput(session, "bld_name", value = name)
+      }
+    }
   })
+
+  # Único lugar donde se muestran los errores de esta página (caja roja).
+  output$bld_errors <- renderUI(error_box(errors()))
 
   output$bld_download <- downloadHandler(
     filename = function() {
@@ -102,17 +150,7 @@ builder_controller <- function(input, output, session, user_models,
     shiny::req(user)
     models <- user_models()
 
-    spec <- tryCatch(
-      model_spec(),
-      error = function(e) {
-        errors(conditionMessage(e))
-        NULL
-      }
-    )
-    if (is.null(spec)) {
-      return()
-    }
-
+    spec <- model_spec()
     problems <- validate_model_spec(
       spec,
       existing_ids = c(
@@ -129,7 +167,7 @@ builder_controller <- function(input, output, session, user_models,
     }
 
     if (length(problems) > 0) {
-      errors(problems)
+      reject_save(problems)
       return()
     }
 
@@ -141,7 +179,7 @@ builder_controller <- function(input, output, session, user_models,
         compile_user_model(spec, paste0(prefix, counter))
       ),
       error = function(e) {
-        errors(conditionMessage(e))
+        reject_save(conditionMessage(e))
         NULL
       }
     )

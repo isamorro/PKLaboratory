@@ -17,9 +17,9 @@ no_compartments_error <- paste(
 )
 
 # Mensajes para los modelos creados por el usuario.
-compile_model_error <- paste(
-  "No se pudo compilar el modelo con la configuración indicada.",
-  "Revisa la estructura y los parámetros."
+compile_code_error <- paste(
+  "No se pudo compilar el código del modelo.",
+  "Mensajes de mrgsolve y del compilador de C++:"
 )
 
 unstable_model_error <- paste(

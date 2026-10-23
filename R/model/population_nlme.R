@@ -8,7 +8,7 @@
 # Descripción:
 # Contiene las funciones para ajustar modelos mixtos no lineales para
 # medidas repetidas de Lindstrom y Bates (1990), con su algoritmo
-# (nlme::nlme), como en los ejemplos Theoph o Indometh, para cualquier
+# (nlme::nlme), como en el ejemplo Theoph, para cualquier
 # modelo de la aplicación (sin dependencias de Shiny). El modelo tiene dos
 # etapas y un único nivel de agrupación, el individuo i, con observaciones
 # repetidas j en el tiempo:
@@ -17,9 +17,8 @@
 #      proporcional o combinado).
 #   2. Entre individuos: phi_i = A_i beta + b_i, b_i ~ N(0, Psi), con cada
 #      parámetro en escala logarítmica (log CL, como lKe, lKa y lCl en
-#      Theoph) o natural (como las amplitudes A1 y A2 de SSbiexp en
-#      Indometh); las covariables entran en A_i y Psi es diagonal o
-#      completa.
+#      Theoph) o natural (sin transformar); las covariables entran en A_i
+#      y Psi es diagonal o completa.
 # El usuario decide:
 #   - la escala de cada parámetro (logarítmica o natural); los modelos
 #     con CL y volumen central se estiman siempre con KE en su lugar
@@ -143,14 +142,16 @@ population_structure <- function(mod) {
 
 # Busca el compartimento y el volumen centrales: la salida medida por
 # defecto es el compartimento dividido por el volumen (CP = CENT / V,
-# #define CP (CENT/V2)...), leído del código del modelo.
+# capture CP = CENT / V, #define CP (CENT/V2)...), leído del código del
+# modelo. Delante puede llevar cualquier tipo de C++ que admite el editor.
 # Recibe: estructura del modelo (population_structure()).
 # Devuelve: lista con cmt y volume (NULL si no tiene esa forma).
 population_central <- function(st) {
   code <- gsub("[ \t()]", "", st$mod@code)
   name <- "([A-Za-z_][A-Za-z0-9_]*)"
+  prefix <- paste(c("#define", "const", "static", cpp_types), collapse = "|")
   pat <- sprintf(
-    "^(#define|double)?%s=?%s/%s;?$", st$observed, name, name
+    "^(%s)*%s=?%s/%s;?$", prefix, st$observed, name, name
   )
   for (m in regmatches(code, regexec(pat, code))) {
     if (length(m) == 4L && m[[3]] %in% st$cmts && m[[4]] %in% st$params) {
@@ -402,7 +403,7 @@ population_covariate_design <- function(fdata, unit, effects, params,
 # Lindstrom-Bates con nlme
 # ------------------------------------------------------------
 # nlme::nlme() es la implementación de Lindstrom y Bates que usan Pinheiro y
-# Bates con Theoph e Indometh. La función de esperanza f(phi_i, t_ij) es el
+# Bates con Theoph. La función de esperanza f(phi_i, t_ij) es el
 # modelo de la aplicación, que se resuelve con mrgsolve.
 
 # Escribe una línea del registro de mrgsolve (en la salida del proceso,
@@ -902,7 +903,7 @@ population_fit_tables <- function(...) {
 # sesión de Shiny: si fallan de forma grave, solo cae el proceso hijo, y el
 # objeto del ajuste no ocupa memoria en la aplicación.
 # Recibe: los mismos argumentos que population_fit_nlme().
-# Devuelve: el resultado de population_fit_tables().
+# Devuelve: promesa con el resultado de population_fit_tables().
 population_fit_isolated <- function(...) {
   population_run_isolated("population_fit_tables", list(...))
 }
@@ -968,12 +969,15 @@ population_explain_error <- function(msg) {
   list(cause = msg, hints = character(), r_message = NULL)
 }
 
-# Ejecuta una función de este archivo en un proceso de R aparte. Si falla,
-# lanza un error (de clase population_error) con un mensaje para el
-# usuario y, en su campo log, el registro del proceso.
+# Ejecuta una función de este archivo en un proceso de R aparte, en segundo
+# plano: se lanza el proceso y se comprueba cada 0,2 s si ha terminado. Así
+# la aplicación no se bloquea mientras dura el ajuste y sigue atendiendo a
+# los demás usuarios.
 # Recibe: nombre de la función y lista con sus argumentos.
-# Devuelve: el resultado de la función, con el registro del proceso en el
-# atributo "log".
+# Devuelve: promesa con el resultado de la función (con el registro del
+# proceso en el atributo "log"). Si falla, se rechaza con un error de clase
+# population_error, con un mensaje para el usuario y, en su campo log, el
+# registro del proceso.
 population_run_isolated <- function(fun, args) {
   if (!requireNamespace("callr", quietly = TRUE)) {
     stop(
@@ -988,7 +992,6 @@ population_run_isolated <- function(fun, args) {
   # Todo lo que escribe el proceso (iteraciones, mensajes y avisos) se
   # guarda como registro, que el usuario puede leer si el ajuste falla.
   log_file <- tempfile("pklab_ajuste_", fileext = ".txt")
-  on.exit(unlink(log_file), add = TRUE)
   read_log <- function(extra = character()) {
     lines <- if (file.exists(log_file)) {
       readLines(log_file, warn = FALSE)
@@ -1002,40 +1005,60 @@ population_run_isolated <- function(fun, args) {
   }
   # Error con la causa para el usuario, qué puede probar, el mensaje
   # original de R y el registro del proceso.
-  fail <- function(msg) {
+  failure <- function(msg) {
     x <- population_explain_error(msg)
-    stop(structure(
+    structure(
       class = c("population_error", "error", "condition"),
       list(
         message = paste(c(x$cause, x$hints), collapse = " "), call = NULL,
         cause = x$cause, hints = x$hints, r_message = x$r_message,
         log = read_log(c("", "== Error ==", msg))
       )
-    ))
+    )
   }
-  result <- tryCatch(
-    callr::r(
-      function(helpers, fun, args) {
-        options(warn = 1)
-        list2env(helpers, globalenv())
-        do.call(fun, args)
+  # Resultado del proceso ya terminado, o el error que hay que mostrar.
+  outcome <- function(process) {
+    tryCatch(
+      {
+        result <- process$get_result()
+        attr(result, "log") <- read_log()
+        result
       },
-      args = list(helpers = helpers, fun = fun, args = args),
-      stdout = log_file, stderr = "2>&1"
-    ),
-    error = function(e) {
-      cause <- e$parent
-      if (inherits(cause, "condition")) {
-        fail(conditionMessage(cause))
+      error = function(e) {
+        cause <- e$parent
+        failure(if (inherits(cause, "condition")) {
+          conditionMessage(cause)
+        } else {
+          paste(
+            "El proceso de estimación se ha interrumpido de forma",
+            "inesperada. Prueba otra vez o con un modelo de error distinto."
+          )
+        })
       }
-      fail(paste(
-        "El proceso de estimación se ha interrumpido de forma inesperada.",
-        "Prueba otra vez o con un modelo de error distinto."
-      ))
-    }
+    )
+  }
+
+  process <- callr::r_bg(
+    function(helpers, fun, args) {
+      options(warn = 1)
+      list2env(helpers, globalenv())
+      do.call(fun, args)
+    },
+    args = list(helpers = helpers, fun = fun, args = args),
+    stdout = log_file, stderr = "2>&1"
   )
-  attr(result, "log") <- read_log()
-  result
+  promises::promise(function(resolve, reject) {
+    check <- function() {
+      if (process$is_alive()) {
+        later::later(check, 0.2)
+        return(invisible())
+      }
+      result <- outcome(process)
+      unlink(log_file)
+      if (inherits(result, "population_error")) reject(result) else resolve(result)
+    }
+    check()
+  })
 }
 
 # ------------------------------------------------------------
@@ -1323,8 +1346,8 @@ population_wald <- function(est, se, log_scale) {
 
 # Construye la tabla de parámetros poblacionales con IC del 95 %. Los
 # valores típicos se estiman en la escala de cada parámetro (beta:
-# logarítmica, como lKe, lKa o lCl en Pinheiro y Bates, o natural, como A1
-# y A2 en Indometh) y se devuelven también en su escala natural (CL, V,
+# logarítmica, como lKe, lKa o lCl en Pinheiro y Bates, o natural) y se
+# devuelven también en su escala natural (CL, V,
 # KA...). Los coeficientes de las covariables solo tienen una escala.
 # Recibe: resultado de population_fit_nlme().
 # Devuelve: data.frame con Parametro, Beta, Estimacion, IC95_inferior e

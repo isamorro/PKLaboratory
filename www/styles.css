@@ -1815,6 +1815,39 @@ h4 {
   min-height: 150px;
 }
 
+/* Editor de código de mrgsolve. */
+.pk-component-form .pk-code-editor textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  overflow-x: auto;
+  min-height: 420px;
+}
+
+.pk-component-hint a,
+.pk-pagebar-title p a {
+  color: var(--pk-primary);
+  font-weight: 600;
+}
+
+.pk-code-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+}
+
+.pk-code-tools .shiny-input-container {
+  flex: 1 1 260px;
+  margin-bottom: 8px;
+}
+
+.pk-code-tools > .btn {
+  flex: 0 0 auto;
+}
+
 /* Guía de uso: maquetada como un documento (una hoja centrada, con
    índice, secciones numeradas, texto corrido y tablas). */
 .pk-doc-page {
@@ -1980,6 +2013,42 @@ h4 {
 
 .pk-doc dd {
   margin: 2px 0 0;
+}
+
+/* Ejemplos de la guía: recuadro, código para copiar y descargas. */
+.pk-doc-example {
+  margin: 18px 0 16px;
+  padding: 16px 20px 6px;
+  border: 1px solid var(--pk-border);
+  border-left: 4px solid var(--pk-primary);
+  border-radius: 6px;
+  background: #f7faf8;
+}
+
+.pk-doc-example-title {
+  margin-bottom: 8px !important;
+  font-weight: 700;
+  color: var(--pk-primary-dark);
+}
+
+.pk-doc-code {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--pk-border);
+  border-radius: 6px;
+  background: var(--pk-surface);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.pk-doc-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
 }
 
 @media (max-width: 700px) {

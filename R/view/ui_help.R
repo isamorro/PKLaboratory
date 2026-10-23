@@ -6,22 +6,30 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Contiene la función para construir la guía de uso de la aplicación,
-# maquetada como un documento (una hoja con índice y secciones
-# numeradas) y dividida según las páginas de la aplicación: Simulación,
-# Crear modelo, Análisis poblacional (con el formato del CSV y ejemplos
-# para descargar) y Mis modelos. Los nombres de columna y las unidades se
-# leen de R/model/population.R, para que la guía no se desfase.
+# Define la interfaz de la guía de uso de PKLaboratory, organizada como
+# un documento con índice y secciones numeradas: Simulación, Crear modelo,
+# Análisis poblacional y Mis modelos. Incluye ejemplos prácticos de
+# simulación con pk1, creación de un modelo PK/PD y análisis de los datos
+# Theoph. Los nombres de las columnas y las unidades se obtienen de
+# R/model/population.R para mantener la guía sincronizada con la aplicación.
 # ============================================================
 
 # Construye la guía de uso.
 # Devuelve: documento con la guía.
 help_ui <- function() {
 
+  # Código en línea. Al generar el HTML, Shiny separa los elementos con
+  # saltos de línea, que el navegador muestra como espacios; por eso se
+  # quitan detrás del código (le siguen comas, puntos o paréntesis) y, con
+  # tight = TRUE, también delante (cuando va justo después de un paréntesis).
+  code <- function(x, tight = FALSE) {
+    shiny::tags$code(x, .noWS = if (tight) "outside" else "after")
+  }
+
   # Lista de nombres separados por comas, en código.
-  names_list <- function(x) {
+  names_list <- function(x, tight = FALSE) {
     shiny::tagList(lapply(seq_along(x), function(i) {
-      shiny::tagList(if (i > 1) ", ", shiny::tags$code(x[[i]]))
+      shiny::tagList(if (i > 1) ", ", code(x[[i]], tight = tight && i == 1))
     }))
   }
 
@@ -52,6 +60,49 @@ help_ui <- function() {
     )
   }
 
+  # Recuadro con un ejemplo paso a paso.
+  # Recibe: título y contenido.
+  # Devuelve: recuadro del ejemplo.
+  example <- function(title, ...) {
+    shiny::div(
+      class = "pk-doc-example",
+      shiny::p(class = "pk-doc-example-title", title),
+      ...
+    )
+  }
+
+  # Bloque de código para copiar en la aplicación.
+  # Recibe: líneas del código.
+  # Devuelve: etiqueta <pre>.
+  code_block <- function(...) {
+    shiny::tags$pre(class = "pk-doc-code", paste(c(...), collapse = "\n"))
+  }
+
+  # Modelo PK/PD del ejemplo de Crear modelo (apartado 2.7.2 de la guía de
+  # usuario de mrgsolve).
+  pkpd_code <- code_block(
+    "$PROB Modelo PK/PD de respuesta indirecta",
+    "",
+    "$PARAM CL = 1, VC = 30, KA = 1.3",
+    "KIN = 100, KOUT = 2, IC50 = 2",
+    "",
+    "$GLOBAL",
+    "#define CP (CENT/VC)",
+    "",
+    "$CMT GUT CENT RESP",
+    "",
+    "$MAIN",
+    "RESP_0 = KIN/KOUT;",
+    "",
+    "$ODE",
+    "double INH = CP/(IC50+CP);",
+    "dxdt_GUT = -KA*GUT;",
+    "dxdt_CENT = KA*GUT - (CL/VC)*CENT;",
+    "dxdt_RESP = KIN*(1-INH) - KOUT*RESP;",
+    "",
+    "$CAPTURE CP"
+  )
+
   # Índice: secciones y, dentro, sus subsecciones (ancla = título).
   contents <- list(
     simulacion = list("Simulación"),
@@ -64,6 +115,7 @@ help_ui <- function() {
       pob_datos = "Paso 1: Datos",
       pob_analisis = "Paso 2: Análisis",
       pob_resultados = "Paso 3: Resultados",
+      pob_ejemplo = "Ejemplo",
       pob_avisos = "Avisos frecuentes",
       pob_limites = "Limitaciones"
     ),
@@ -85,8 +137,8 @@ help_ui <- function() {
         shiny::tags$td("Paciente"),
         shiny::tags$td(names_list(population_column_names$group)),
         shiny::tags$td(
-          "Texto o número (", shiny::tags$code("1"), ", ",
-          shiny::tags$code("P-01"), "...), sin vacíos"
+          "Texto o número (", code("1", tight = TRUE), ", ",
+          code("P-01"), "...), sin vacíos"
         ),
         shiny::tags$td("Siempre")
       ),
@@ -105,9 +157,9 @@ help_ui <- function() {
       shiny::tags$tr(
         shiny::tags$td("Dosis"),
         shiny::tags$td(
-          "Cualquier nombre que empiece por ", shiny::tags$code("Dose"),
-          " o ", shiny::tags$code("Dosis"), " (", shiny::tags$code("DOSE"),
-          ", ", shiny::tags$code("Dose_mg"), "...)"
+          "Cualquier nombre que empiece por ", code("Dose", tight = TRUE),
+          " o ", code("Dosis", tight = TRUE), " (", code("DOSE", tight = TRUE),
+          ", ", code("Dose_mg"), "...)"
         ),
         shiny::tags$td(
           "Número mayor que 0, el mismo en todas las filas de cada paciente"
@@ -247,61 +299,74 @@ help_ui <- function() {
       section(
         "simulacion", "1", "Simulación",
         shiny::p(
-          "Simula la evolución temporal de las concentraciones de un fármaco ",
-          "a partir de un modelo farmacocinético y de la pauta de dosificación",
-          " que elijas, sin necesidad de utilizar datos externos."
+          "Esta sección permite simular la evolución de la concentración ",
+          "de un fármaco a lo largo del tiempo mediante un modelo ",
+          "farmacocinético y una pauta de dosificación definidos por el usuario. ",
+          "No es necesario cargar datos externos."
         ),
         shiny::p(
-          "Puedes seleccionar el modelo de tres fuentes: la biblioteca de ",
-          "mrgsolve, el catálogo común de modelos o tus propios modelos."
+          "El modelo puede seleccionarse de la biblioteca de mrgsolve, ",
+          "del catálogo compartido o de los modelos guardados por el usuario."
         ),
         shiny::h3("Cómo se usa"),
         shiny::tags$ol(
           item(
-            "Selecciona el modelo",
-            "en la barra superior."
+            "Selecciona el modelo.",
+            "Elige el modelo que deseas utilizar desde la barra superior."
           ),
           item(
-            "Configura los parámetros del modelo",
-            "en el panel de la izquierda. La aplicación comprueba",
-            "que los valores introducidos sean válidos y muestra",
-            "un mensaje de error si detecta alguno incorrecto."
+            "Configura los parámetros del modelo.",
+            "Introduce los valores correspondientes en el panel izquierdo.",
+            " La aplicación comprueba que sean válidos y muestra un mensaje",
+            " si detecta algún error. "
           ),
           item(
-            "Define la pauta de administración:",
-            "selecciona el compartimento en el que se administra",
-            "el fármaco e indica la dosis, el número de dosis,",
-            "el intervalo entre dosis, el tiempo final de simulación",
-            "y la duración de la infusión. El intervalo entre dosis",
+            "Define la pauta de administración.",
+            "Selecciona el compartimento en el que se administra",
+            " el fármaco e indica la dosis, el número de dosis,",
+            " el intervalo entre dosis y el tiempo final de simulación.",
+            " El intervalo entre dosis",
             "solo se utiliza cuando se administran varias dosis."
           ),
           item(
-            "Selecciona el tipo de administración:",
-            "si la duración de la infusión es 0, la dosis se administra",
-            "de forma instantánea (bolo). Si es mayor que 0,",
-            "se administra a velocidad constante (dosis / duración)",
-            "durante el tiempo indicado. La duración de la infusión",
-            "no puede superar el intervalo entre dosis cuando",
-            "se administran varias dosis."
+            "Establece la duración de la administración.",
+            "Introduce un valor de 0 para administrar la dosis",
+            " de forma instantánea (bolo) o un valor mayor que 0", 
+            " para realizar una infusión a velocidad constante",
+            " (dosis / duración).",
+            " Si se administran varias dosis, la duración de la infusión", 
+            " no puede superar el intervalo entre ellas. ",
           ),
           item(
-            "Ejecuta la simulación",
-            "pulsando el botón Simular."
+            "Ejecuta la simulación.",
+            "Pulsa el botón «Simular» para obtener los resultados."
           )
         ),
         shiny::h3("Qué obtienes"),
         shiny::tags$ul(
           item(
-            "Evolución temporal:",
-            "representación gráfica de las variables seleccionadas",
-            "a lo largo del tiempo. La gráfica se puede descargar",
-            "en formato PNG."
+            "Evolución temporal.",
+            "Representación gráfica de las variables seleccionadas",
+            " a lo largo del tiempo. La gráfica puede descargarse",
+            " en formato PNG."
           ),
           item(
-            "Resultados de la simulación:",
-            "tabla con las primeras 150 filas de los resultados.",
-            "La tabla completa se puede descargar en formato CSV",
-            "o en una versión CSV compatible con Excel."
+            "Resultados de la simulación.",
+            "Tabla con las primeras 150 filas de los resultados.",
+            " Los resultados completos pueden descargarse en formato CSV",
+            " o en una versión compatible con Excel."
+          )
+        ),
+        example(
+          "Ejemplo",
+          shiny::p(
+            "Al acceder a Simulación se carga, de forma predeterminada, ",
+            "el ejemplo de la ",
+            external_link(
+              "https://mrgsolve.org/vignettes/01-get-started.html",
+              "introducción a mrgsolve"
+            ),
+            ", con el modelo pk1. Pulsa Simular para ver el resultado."
           )
         ),
         shiny::h3("Limitaciones"),
@@ -313,11 +378,6 @@ help_ui <- function() {
             "se administran en el mismo compartimento."
           ),
           shiny::tags$li(
-            "La simulación representa a un único individuo con",
-            "los parámetros especificados, sin considerar",
-            "la variabilidad interindividual."
-          ),
-          shiny::tags$li(
             "El número máximo de puntos temporales de simulación",
             "es de 20 000."
           )
@@ -327,65 +387,116 @@ help_ui <- function() {
       section(
         "crear", "2", "Crear modelo",
         shiny::p(
-          "Construye tu propio modelo farmacocinético seleccionando y",
-          "configurando sus componentes, sin necesidad de escribir",
-          "código de mrgsolve. El código se genera automáticamente",
-          "en el panel de la derecha y se actualiza al modificar",
-          "los valores del formulario."
+          "Esta sección permite definir modelos propios mediante la sintaxis ",
+          "de mrgsolve, incluidos modelos con efectos aleatorios, ",
+          "biodisponibilidad, tiempos de latencia y eventos. El código ",
+          "puede escribirse directamente, importarse desde un archivo .cpp ",
+          "o generarse con el asistente por componentes. El panel derecho ",
+          "muestra la validación del código durante su edición."
         ),
-        shiny::h3("Cómo se rellena"),
+        shiny::h3("El código del modelo"),
+        shiny::p(
+          "El editor utiliza la sintaxis propia de mrgsolve, cada bloque ",
+          "comienza con una directiva, como $PARAM, $CMT o $ODE, seguida ",
+          "de su contenido. La finalidad y la sintaxis de cada bloque se ",
+          "describen en la ", mrgsolve_spec_link(), "."
+        ),
+        shiny::p(
+          "Dado que la compilación y la ejecución tienen lugar en el ",
+          "servidor, el código se somete previamente a las siguientes ",
+          "restricciones y comprobaciones:"
+        ),
+        shiny::tags$ul(
+          item(
+            "Nombre del modelo.", "Es obligatorio. Empieza por una letra y usa",
+            "solo letras sin tilde, números, espacios, guiones o guiones",
+            "bajos (máximo 30 caracteres). No puede coincidir con el de otro",
+            "modelo tuyo ni con uno de la biblioteca. La descripción es",
+            "opcional y admite hasta 200 caracteres."
+          ),
+          item(
+            "Bloques admitidos.", "Se admiten los siguientes bloques: ", names_list(paste0("$", c(
+              "PROB", "PARAM", "INIT", "CMT", "VCMT", "FIXED", "INPUT",
+              "THETA", "OMEGA", "SIGMA", "SET", "PKMODEL", "CAPTURE",
+              "PLUGIN", "GLOBAL", "PREAMBLE", "MAIN", "PK", "ODE", "DES",
+              "TABLE", "ERROR", "EVENT", "PRED"
+            ))), "."
+          ),
+          item(
+            "Plugins admitidos.", "Se admiten los siguientes plugins: ", names_list(allowed_plugins), "."
+          ),
+          item(
+            "Bloques de valores ($PARAM, $INIT, $OMEGA, $SET...).", "Solo se admiten",
+            "números, también con el formato anotado",
+            code("CL : 5 : Aclaramiento (L/h)"), "."
+          ),
+          item(
+            "Bloques de C++ ($MAIN, $ODE, $TABLE, $EVENT...).", "Se admiten variables,",
+            "if/else, operaciones, funciones matemáticas, las de mrgsolve",
+            "(ETA(n), EPS(n), THETA(n), self.mevent()...), R::rnorm() y",
+            "similares (con el plugin Rcpp) y las de evtools y tad."
+          ),
+          item(
+            "No se admiten.", "Se excluyen $ENV, $INCLUDE, $NMXML y $NMEXT; las opciones",
+            "que evalúan código R (@code, @param, @etas...); #include,",
+            "cadenas de texto, punteros, corchetes, bucles y definiciones de",
+            "funciones."
+          )
+        ),
+        shiny::p(
+          "Si el código no compila, se muestran los errores del",
+          "compilador junto a la línea que los produce."
+        ),
+        shiny::h3("Asistente por componentes"),
+        shiny::p(
+          "Para crear el modelo sin escribir código, pulsa",
+          shiny::strong("Asistente por componentes", .noWS = "after"),
+          ", rellena el formulario y pulsa",
+          shiny::strong("Generar código", .noWS = "after"), ". El",
+          "código generado sustituye al del editor, donde puedes",
+          "completarlo con otros bloques."
+        ),
         shiny::tags$ol(
           item(
-            "Nombre y descripción", "del modelo (la descripción es",
-            "opcional)."
+            "Parámetros.", "Introduce uno por línea, con la forma nombre = valor, por",
+            "ejemplo", code("CL = 5"), "."
           ),
           item(
-            "Parámetros:", "uno por línea, con la forma nombre = valor, por",
-            "ejemplo", shiny::tags$code("CL = 5"), "."
+            "Compartimentos.", "Representan las cantidades que evolucionan, con su",
+            "valor inicial (0 si empiezan vacío, por ejemplo",
+            code("CENT = 0"), "."
           ),
           item(
-            "Compartimentos:", "las cantidades que evolucionan, con su",
-            "valor inicial (0 si empiezan vacíos):",
-            shiny::tags$code("CENT = 0"), "."
+            "Variables auxiliares (opcional).", "Permiten definir expresiones que simplifican",
+            "las ecuaciones, como", code("CP = CENT / V"), "."
           ),
           item(
-            "Variables auxiliares", "(opcional): expresiones que simplifican",
-            "las ecuaciones, como", shiny::tags$code("CP = CENT / V"), "."
-          ),
-          item(
-            "Ecuaciones diferenciales:", "una por compartimento, con la",
-            "derivada de su cantidad:",
-            shiny::tags$code("CENT = -CL / V * CENT"),
+            "Ecuaciones diferenciales.", "Introduce una por compartimento, indicando ",
+            "la derivada temporal de la cantidad que contiene, por ejemplo ",
+            code("CENT = -CL / V * CENT"),
             ", sin dxdt_ ni punto y coma."
           ),
           item(
-            "Variables de salida:", "los parámetros o variables que quieres",
+            "Variables de salida.", "Indica los parámetros o variables que quieres",
             "consultar, separados por comas. Los compartimentos aparecen",
             "siempre en los resultados."
           )
         ),
-        shiny::h3("Reglas"),
+        shiny::p("El asistente aplica las siguientes reglas:"),
         shiny::tags$ul(
           item(
-            "Nombre del modelo:", "empieza por una letra y usa solo letras",
-            "sin tilde, números, espacios, guiones o guiones bajos (máximo",
-            "30 caracteres). No puede coincidir con el de otro modelo tuyo",
-            "ni con uno de la biblioteca. La descripción admite hasta 200",
-            "caracteres."
-          ),
-          item(
-            "Nombres de parámetros, compartimentos y variables:", "únicos,",
+            "Nombres de parámetros, compartimentos y variables.", "Deben ser únicos,",
             "de hasta 30 caracteres, con letras, números y guion bajo, y",
             "empezando por una letra."
           ),
           item(
-            "Valores:", "números con punto decimal. Como máximo, 50",
+            "Valores.", "Se introducen como números con punto decimal. Como máximo, 50",
             "parámetros, 30 compartimentos (al menos uno) y 50 variables",
             "auxiliares."
           ),
           item(
-            "Expresiones:", "pueden usar los parámetros, los",
-            "compartimentos, el tiempo (", shiny::tags$code("TIME"),
+            "Expresiones.", "Pueden usar los parámetros, los",
+            "compartimentos, el tiempo (", code("TIME", tight = TRUE),
             ") y las variables auxiliares definidas antes; las operaciones",
             names_list(c("+", "-", "*", "/", "^")), ", las comparaciones y",
             names_list(c("&&", "||", "!")), "; y las funciones",
@@ -393,53 +504,57 @@ help_ui <- function() {
               "exp", "log", "log10", "sqrt", "abs", "sin", "cos", "tan",
               "floor", "ceiling", "min", "max", "pow", "ifelse"
             )), "."
-          ),
-          item(
-            "Tipo de modelo:", "solo se crean modelos de ecuaciones",
-            "diferenciales (con compartimentos)."
           )
         ),
         shiny::h3("Guardar y descargar"),
         shiny::p(
           shiny::strong("Guardar modelo"),
-          "valida el formulario, compila el modelo y lo prueba con una",
-          "dosis de 100 en el primer compartimento durante 24 unidades de",
-          "tiempo. Si todo va bien, queda en Mis modelos como",
+          "valida el código, compila el modelo y lo prueba.",
+          " Si todo va bien, queda en Mis modelos como",
           "privado y aparece en los selectores de Simulación y de Análisis",
           "poblacional.", shiny::strong("Descargar .cpp"),
-          "guarda el código generado para usarlo con mrgsolve fuera de la",
-          "aplicación."
+          " permite descargar el código."
+        ),
+        example(
+          "Ejemplo",
+          shiny::p(
+            "Este modelo es el ejemplo PK/PD de la ",
+            mrgsolve_spec_link("guía de usuario de mrgsolve.")
+          ),
+          shiny::tags$ol(
+            shiny::tags$li("Asigna un nombre al modelo.."),
+            shiny::tags$li("Copia este código en el editor.", pkpd_code),
+            shiny::tags$li("Pulsa Guardar modelo."),
+            shiny::tags$li("En Simulación, pulsa Simular.")
+          )
         )
       ),
 
       section(
         "poblacional", "3", "Análisis poblacional",
         shiny::p(
-          "Realiza un análisis farmacocinético poblacional a partir",
-          "de las concentraciones observadas en distintos pacientes.",
-          "Permite estimar los parámetros farmacocinéticos típicos",
-          "de la población, cuantificar la variabilidad interindividual",
-          "e identificar las características de los pacientes",
-          "(covariables) que pueden explicar parte de dicha variabilidad.",
-          "El análisis utiliza modelos no lineales de efectos mixtos,",
-          "ajustados mediante el algoritmo de Lindstrom y Bates,",
-          "implementado en el paquete nlme.",
-          "El procedimiento se organiza en tres etapas:",
+          "Esta sección permite analizar conjuntamente las concentraciones ",
+          "observadas en diferentes pacientes. Mediante modelos no lineales ",
+          "de efectos mixtos se estiman los parámetros farmacocinéticos ",
+          "poblacionales, se cuantifica la variabilidad interindividual ",
+          "y se evalúa la influencia de las covariables disponibles. ",
+          "El ajuste emplea el algoritmo de Lindstrom y Bates, implementado ",
+          "en el paquete nlme. El procedimiento comprende tres etapas: ",
           "Datos, Análisis y Resultados."
         ),
         subsection(
           "pob_necesitas", "3.1", "Qué necesitas",
           shiny::tags$ul(
             item(
-              "Un modelo farmacocinético",
-              "seleccionado en la barra superior. Puedes utilizar",
+              "Un modelo farmacocinético.",
+              "Selecciónalo en la barra superior. Puedes utilizar",
               "cualquiera de los modelos disponibles en la aplicación,",
               "siempre que los datos proporcionados sean compatibles",
               "con el modelo seleccionado."
             ),
             item(
-              "Un archivo CSV",
-              "que contenga las concentraciones observadas de cada paciente,",
+              "Un archivo CSV.",
+              "Debe contener las concentraciones observadas de cada paciente,",
               "organizadas según el formato descrito en el apartado 3.2."
             )
           )
@@ -462,40 +577,40 @@ help_ui <- function() {
           shiny::p("Los datos deben cumplir los siguientes requisitos:"),
           shiny::tags$ul(
             item(
-              "Pacientes:",
-              "al menos 5 pacientes, con un mínimo de 3 concentraciones",
-              "medidas por paciente."
+              "Pacientes.",
+              "Se requieren al menos 5 pacientes, con un mínimo de 3 concentraciones",
+              " medidas por paciente."
             ),
             item(
-              "Tiempo:",
-              "expresado desde la administración de la dosis,",
-              "sin valores negativos y en ",
+              "Tiempo.",
+              "Debe medirse desde la administración de la dosis,",
+              " sin valores negativos y en ",
               names_list(names(population_time_units)), "."
             ),
             item(
-              "Concentración:",
-              "sin valores negativos ni ausentes y expresada en ",
+              "Concentración.",
+              "No debe contener valores negativos ni ausentes y debe expresarse en ",
               names_list(names(population_conc_units)), "."
             ),
             item(
-              "Dosis:",
-              "se considera una única dosis administrada en t = 0.",
-              "Su valor debe ser el mismo en todas las filas de cada",
+              "Dosis.",
+              "Se considera una única dosis administrada en t = 0.",
+              " Su valor debe ser el mismo en todas las filas de cada",
               "paciente y expresarse en ",
               names_list(names(population_dose_units)), ".",
               "Si se utiliza mg/kg, la dosis se calcula a partir",
               "de una columna que contenga el peso del paciente en kg."
             ),
             item(
-              "Covariables:",
-              "deben cumplir los requisitos descritos en el apartado 3.3."
+              "Covariables.",
+              "Deben cumplir los requisitos descritos en el apartado 3.3."
             )
           ),
           shiny::p(
             "Si el archivo CSV contiene columnas adicionales que",
             " no son necesarias para el análisis, como las columnas",
             " de eventos de NONMEM (",
-            names_list(population_event_columns),
+            names_list(population_event_columns, tight = TRUE),
             ") o los índices de fila añadidos al exportar datos",
             " desde R o Python (rownames, X, etc.),",
             " la aplicación las ignora o elimina automáticamente."
@@ -505,12 +620,13 @@ help_ui <- function() {
         subsection(
           "pob_covariables", "3.3", "Covariables",
           shiny::p(
-            "Una covariable es una característica del paciente que puede",
-            "explicar por qué sus parámetros difieren de los de otros",
-            "pacientes, como el peso sobre el aclaramiento. Cualquier columna",
-            "del CSV que no sea el paciente, el tiempo, la concentración o",
-            "la dosis se revisa como posible covariable. Estas se reconocen",
-            "por su nombre:"
+            "Las covariables son características individuales que pueden ",
+            "explicar parte de las diferencias farmacocinéticas entre ",
+            "pacientes; por ejemplo, la relación entre el peso corporal ",
+            "y el aclaramiento. La aplicación examina como posibles ",
+            "covariables las columnas del CSV distintas de las de ",
+            "identificación, tiempo, concentración y dosis. Reconoce ",
+            "automáticamente los siguientes nombres:"
           ),
           covariates,
           shiny::p(
@@ -565,7 +681,7 @@ help_ui <- function() {
             "Las covariables se incorporan a los parámetros",
             " farmacocinéticos que selecciones, como el aclaramiento",
             " (CL) o el volumen de distribución (V).",
-            " Una misma covariable puede influir en varios parámetros:",
+            " Una misma covariable puede influir en varios parámetros,",
             " por ejemplo, el efecto del peso sobre CL y sobre V",
             " se estima de forma independiente."
           ),
@@ -578,27 +694,25 @@ help_ui <- function() {
           ),
           shiny::tags$ul(
             item(
-              "Covariable continua, forma de potencia (por defecto):",
-              shiny::tags$code("θ · (cov / mediana)^β"),
+              "Covariable continua, forma de potencia (por defecto).",
+              "Se utiliza la expresión ", code("θ · (cov / mediana)^β"),
               ". El efecto se calcula en relación con la mediana",
               " de la covariable. El coeficiente β determina cómo",
               " cambia el parámetro farmacocinético al variar",
               " la covariable. Es una relación habitual para describir",
-              " el efecto del peso corporal, como en los modelos",
-              " alométricos, donde suele utilizarse un exponente",
-              " de 0,75 para el aclaramiento (CL)."
+              " el efecto del peso corporal."
             ),
             item(
-              "Covariable continua, forma lineal en escala logarítmica:",
-              shiny::tags$code("θ · exp(β · (cov − mediana))"),
+              "Covariable continua, forma lineal en escala logarítmica.",
+              "Se utiliza la expresión ", code("θ · exp(β · (cov − mediana))"),
               ". El coeficiente β determina el cambio proporcional",
               " del parámetro por cada unidad de aumento de la",
               " covariable. Esta forma permite utilizar covariables",
               " con valores positivos, negativos o iguales a cero."
             ),
             item(
-              "Covariable categórica:",
-              shiny::tags$code("θ · exp(β)"),
+              "Covariable categórica.",
+              "Se utiliza la expresión ", code("θ · exp(β)"),
               ". Se toma como referencia la primera categoría",
               " en orden alfabético y se estima un coeficiente β",
               " para cada una de las categorías restantes.",
@@ -628,8 +742,8 @@ help_ui <- function() {
           "pob_datos", "3.4", "Paso 1: Datos",
           shiny::tags$ol(
             item(
-              "Selecciona el modelo farmacocinético",
-              "en la barra superior."
+              "Selecciona el modelo farmacocinético.",
+              "Elígelo desde la barra superior."
             ),
             item(
               "Carga el archivo CSV.",
@@ -639,8 +753,8 @@ help_ui <- function() {
               " indicando el motivo y solicita cargar otro archivo."
             ),
             item(
-              "Revisa las columnas identificadas",
-              "para el paciente, el tiempo de muestreo,",
+              "Revisa las columnas identificadas.",
+              "Comprueba las columnas para el paciente, el tiempo de muestreo,",
               " la concentración observada y, si el modelo",
               " lo requiere, la dosis. Comprueba que sean",
               " correctas e indica las unidades correspondientes.",
@@ -655,7 +769,7 @@ help_ui <- function() {
               " selecciona el compartimento de absorción",
               " (por ejemplo, EV), según la estructura del modelo.",
               " Si la forma de las curvas no encaja con el compartimento",
-              " elegido, se muestra un aviso en amarillo (apartado 3.7)."
+              " elegido, se muestra un aviso en amarillo (apartado 3.8)."
             ),
             item(
               "Pulsa «Continuar con el análisis».",
@@ -693,11 +807,10 @@ help_ui <- function() {
             " estimación de cada paciente con su intervalo de confianza",
             " del 95 % y, en una tabla desplegable, sus errores",
             " estándar y p-valores.",
-            " Antes de ajustar el modelo poblacional, se recomienda",
-            " ajustar los datos de cada paciente por separado mediante",
-            " regresión no lineal (nlsList), sin efectos aleatorios.",
-            " Estos ajustes permiten explorar las diferencias entre",
-            " pacientes y obtener valores iniciales para el modelo mixto.",
+            " Se recomienda realizar estos ajustes individuales mediante ",
+            "regresión no lineal (nlsList) antes de estimar el modelo ",
+            "poblacional. Sus resultados permiten explorar las diferencias ",
+            "entre pacientes y proponer valores iniciales para el ajuste mixto.",
             " Los parámetros cuyas estimaciones presentan diferencias",
             " apreciables entre pacientes pueden ser candidatos",
             " a incluir efectos aleatorios."
@@ -721,8 +834,8 @@ help_ui <- function() {
 
           shiny::tags$ul(
             item(
-              "Escala de los parámetros:",
-              "permite elegir entre escala natural y logarítmica.",
+              "Escala de los parámetros.",
+              "Permite elegir entre escala natural y logarítmica.",
               " En escala logarítmica, el parámetro se mantiene",
               " positivo y se asume una distribución lognormal",
               " de su variabilidad interindividual, cuando incluye",
@@ -735,9 +848,8 @@ help_ui <- function() {
             ),
 
             item(
-              "Efectos aleatorios",
-              "(«Parámetros que cambian entre pacientes»):",
-              "permite seleccionar los parámetros farmacocinéticos",
+              "Efectos aleatorios.",
+              "Permite seleccionar los parámetros farmacocinéticos",
               " que presentan variabilidad interindividual.",
               " Todos los parámetros estimados tienen un valor",
               " típico poblacional (efecto fijo), mientras que",
@@ -747,8 +859,8 @@ help_ui <- function() {
             ),
 
             item(
-              "Matriz de varianzas y covarianzas (Ψ):",
-              "cuando se seleccionan dos o más efectos aleatorios,",
+              "Matriz de varianzas y covarianzas.",
+              "Cuando se seleccionan dos o más efectos aleatorios,",
               " permite definir su relación. La estructura diagonal",
               " (pdDiag) supone que los efectos aleatorios son",
               " independientes, mientras que la estructura completa",
@@ -757,8 +869,8 @@ help_ui <- function() {
             ),
 
             item(
-              "Covariables:",
-              "permite seleccionar qué características de los",
+              "Covariables.",
+              "Permite seleccionar qué características de los",
               " pacientes influyen sobre cada parámetro farmacocinético",
               " (por ejemplo, el efecto del peso sobre CL).",
               " Las covariables continuas se expresan en relación",
@@ -768,8 +880,8 @@ help_ui <- function() {
             ),
 
             item(
-              "Error de medida (error residual):",
-              "describe la variabilidad de las concentraciones",
+              "Error de medida (error residual).",
+              "Describe la variabilidad de las concentraciones",
               " observadas respecto a las predicciones individuales",
               " del modelo. Se puede elegir entre tres opciones:"
             )
@@ -778,24 +890,24 @@ help_ui <- function() {
           shiny::tags$ul(
             class = "pk-doc-sublist",
             item(
-              "Aditivo:",
-              "la desviación típica del error es constante (σ),",
+              "Aditivo.",
+              "La desviación típica del error es constante (σ),",
               " independientemente de la concentración.",
               " Es adecuado cuando la magnitud del error es similar",
               " para concentraciones bajas y altas."
             ),
 
             item(
-              "Proporcional:",
-              "la desviación típica del error es proporcional",
+              "Proporcional.",
+              "La desviación típica del error es proporcional",
               " al valor absoluto de la concentración predicha",
               " (σ · |predicción|). El error aumenta a medida",
               " que aumenta la concentración."
             ),
 
             item(
-              "Combinado:",
-              "la desviación típica del error se expresa como",
+              "Combinado.",
+              "La desviación típica del error se expresa como",
               " σ · (δ + |predicción|). Combina un componente",
               " constante con otro proporcional, de modo que",
               " el primero predomina a concentraciones bajas",
@@ -817,15 +929,15 @@ help_ui <- function() {
 
           shiny::tags$ul(
             item(
-              "Salida medida:",
-              "selecciona la variable de salida del modelo",
+              "Salida medida.",
+              "Selecciona la variable de salida del modelo",
               " que corresponde a las concentraciones observadas",
               " en el archivo CSV (por defecto, CP o equivalente)."
             ),
 
             item(
-              "Parámetros con valor fijado:",
-              "permite mantener determinados parámetros constantes",
+              "Parámetros con valor fijado.",
+              "Permite mantener determinados parámetros constantes",
               " durante el ajuste, utilizando su valor inicial.",
               " En estos casos no se estima su valor poblacional",
               " ni se incorpora variabilidad interindividual.",
@@ -834,15 +946,15 @@ help_ui <- function() {
             ),
 
             item(
-              "Forma del efecto de las covariables continuas:",
-              "permite elegir entre la forma de potencia",
+              "Forma del efecto de las covariables continuas.",
+              "Permite elegir entre la forma de potencia",
               " y la lineal en escala logarítmica, descritas en el",
               " apartado 3.3."
             ),
 
             item(
-              "Valores iniciales:",
-              "establece el valor de partida de cada parámetro",
+              "Valores iniciales.",
+              "Establece el valor de partida de cada parámetro",
               " para el procedimiento de estimación, con sus",
               " unidades correspondientes. Por defecto, se",
               " utilizan los valores definidos en el modelo,",
@@ -852,15 +964,14 @@ help_ui <- function() {
           ),
 
           shiny::p(
-            "Al pulsar «Estimar parámetros», la aplicación ajusta",
-            " el modelo no lineal de efectos mixtos mediante",
-            " el algoritmo de Lindstrom y Bates, implementado",
-            " en el paquete nlme. Este procedimiento alterna",
-            " etapas de mínimos cuadrados no lineales penalizados",
-            " (PNLS) y de ajuste de un modelo lineal mixto (LME)",
-            " hasta alcanzar la convergencia.",
-            " El tiempo de cálculo depende de la complejidad",
-            " del modelo y del volumen de datos."
+            "Al pulsar «Estimar parámetros», comienza el ajuste del ",
+            "modelo no lineal de efectos mixtos. El algoritmo de Lindstrom ",
+            "y Bates, implementado en nlme, alterna etapas de mínimos ",
+            "cuadrados no lineales penalizados (PNLS) y de ajuste de un ",
+            "modelo lineal mixto (LME) hasta satisfacer el criterio de ",
+            "convergencia o alcanzar los límites de iteración. El tiempo ",
+            "necesario depende del volumen de datos y de la complejidad ",
+            "del modelo."
           )
         ),
         subsection(
@@ -880,8 +991,8 @@ help_ui <- function() {
 
           shiny::tags$ul(
             item(
-              "Efectos fijos:",
-              "muestra los valores estimados de los parámetros",
+              "Efectos fijos.",
+              "Muestra los valores estimados de los parámetros",
               " poblacionales (β) en la escala utilizada durante",
               " el ajuste (natural o logarítmica) y su transformación",
               " a escala natural, con las unidades correspondientes.",
@@ -893,8 +1004,8 @@ help_ui <- function() {
             ),
 
             item(
-              "Variabilidad:",
-              "muestra la desviación típica de cada efecto aleatorio,",
+              "Variabilidad.",
+              "Muestra la desviación típica de cada efecto aleatorio,",
               " que cuantifica la variabilidad entre pacientes",
               " no explicada por los efectos fijos y las covariables.",
               " Para los parámetros modelizados en escala logarítmica",
@@ -907,29 +1018,18 @@ help_ui <- function() {
             ),
 
             item(
-              "Estimaciones de cada paciente:",
-              "muestra los efectos aleatorios estimados para",
-              " cada paciente (b_i), equivalentes a los obtenidos",
+              "Estimaciones de cada paciente.",
+              "Muestra los efectos aleatorios estimados para",
+              " cada paciente, equivalentes a los obtenidos",
               " mediante ranef() de nlme, y los valores de sus",
               " parámetros farmacocinéticos individuales",
               " expresados en escala natural."
             ),
 
             item(
-              "Resumen (summary de nlme):",
-              "la salida de summary() de R para el modelo ajustado,",
-              " que se puede descargar en TXT. Incluye la",
-              " log-verosimilitud, el AIC y el BIC (el ajuste es por",
-              " máxima verosimilitud, así que sirven para comparar",
-              " modelos sobre los mismos datos: un valor menor indica",
-              " un mejor equilibrio entre ajuste y complejidad), las",
-              " desviaciones de los efectos aleatorios, los efectos",
-              " fijos con su error estándar, su t y su p-valor, sus",
-              " correlaciones y los residuos estandarizados. Los",
-              " parámetros en escala logarítmica aparecen con una l",
-              " delante (lCL, lKA...), como lKe, lKa y lCl en Pinheiro",
-              " y Bates, y los efectos de las covariables como",
-              " parámetro.covariable (CL.Wt, KA.SEX=M...)."
+              "Resumen (summary de nlme).",
+              "Contiene la salida de summary() de R para el modelo ajustado,",
+              " que se puede descargar en TXT."
             )
           ),
 
@@ -940,10 +1040,7 @@ help_ui <- function() {
             " LME y PNLS, con los efectos fijos y el criterio de",
             " convergencia), las llamadas a mrgsolve con parámetros no",
             " válidos (con sus valores), los avisos y el error final.",
-            " Se puede descargar en TXT, y el botón de descarga de los",
-            " resultados no aparece. Al ajustar cada paciente por separado,",
-            " si falla, el registro aparece debajo del mensaje de",
-            " error."
+            " Se puede descargar en TXT."
           ),
 
           shiny::p(
@@ -954,14 +1051,51 @@ help_ui <- function() {
           units
         ),
         subsection(
-          "pob_avisos", "3.7", "Avisos frecuentes",
+          "pob_ejemplo", "3.7", "Ejemplo",
+          shiny::p(
+            "Este ejemplo usa los datos Theoph de R con el modelo pk1, como",
+            "Pinheiro y Bates."
+          ),
+          shiny::div(
+            class = "pk-doc-downloads",
+            shiny::downloadButton(
+              "help_example_theoph", "Descargar theoph.csv",
+              class = "btn-sm btn-outline-primary"
+            )
+          ),
+          example(
+            "Paso a paso",
+            shiny::tags$ol(
+              shiny::tags$li("Elige el modelo pk1."),
+              shiny::tags$li(
+                "Carga theoph.csv. En la dosis, elige la unidad mg/kg y la",
+                "columna Wt como peso."
+              ),
+              shiny::tags$li(
+                "Elige EV como compartimento de la dosis y pulsa",
+                "«Continuar con el análisis»."
+              ),
+              shiny::tags$li(
+                "Pulsa «Ajustar cada paciente» y después «Usar la mediana",
+                "como valores iniciales»."
+              ),
+              shiny::tags$li("Pulsa «Estimar parámetros».")
+            ),
+            shiny::p(
+              "Obtendrás un CL de unos 2,7 L/h, una KE de unos 0,086 1/h y",
+              "una KA de unos 1,6 1/h."
+            )
+          )
+        ),
+        subsection(
+          "pob_avisos", "3.8", "Avisos frecuentes",
           shiny::tags$dl(
             shiny::tags$dt(
               "Este CSV no contiene los datos necesarios para el modelo"
             ),
             shiny::tags$dd(
               "Falta alguna columna con un nombre reconocido (apartado 3.2)",
-              "o hay pocos pacientes o medidas. El mensaje indica qué falta:",
+              "o hay pocos pacientes o medidas. El mensaje indica qué falta,",
               "corrige el CSV y vuelve a subirlo, o elige otro modelo."
             ),
             shiny::tags$dt(
@@ -977,7 +1111,7 @@ help_ui <- function() {
               "Con la dosis en mg/kg, elige una columna de peso (kg)"
             ),
             shiny::tags$dd(
-              "La columna elegida como peso no sirve: tiene valores",
+              "La columna elegida como peso no sirve, tiene valores",
               "ausentes, ceros o negativos. Elige la columna correcta o",
               "cambia la unidad de la dosis."
             ),
@@ -997,12 +1131,13 @@ help_ui <- function() {
             )
           ),
           shiny::p(
-            "La aplicación no valora si lo elegido es adecuado: interpreta",
-            "los resultados según tu criterio."
+            "La aplicación no sustituye la evaluación estadística y ",
+            "farmacocinética del usuario. La elección del modelo y la ",
+            "interpretación de los resultados requieren criterio técnico."
           )
         ),
         subsection(
-          "pob_limites", "3.8", "Limitaciones",
+          "pob_limites", "3.9", "Limitaciones",
           shiny::tags$ul(
             shiny::tags$li(
               "Se admite una única dosis por paciente, administrada",
@@ -1036,35 +1171,34 @@ help_ui <- function() {
       section(
         "modelos", "4", "Mis modelos",
         shiny::p(
-          "En esta sección puedes consultar y gestionar los modelos",
-          " farmacocinéticos que has guardado. Para cada modelo",
-          " se muestra un resumen de sus características,",
-          " su descripción y su estado de visibilidad",
-          " (privado o disponible en el catálogo común)."
+          "Esta sección reúne los modelos farmacocinéticos guardados ",
+          "por el usuario y permite administrarlos. Para cada modelo ",
+          "se muestran sus principales características, su descripción ",
+          "y su visibilidad, ya sea privado o compartido en el catálogo común."
         ),
         shiny::tags$ul(
           item(
-            "Editar:",
-            "permite modificar el modelo mediante el formulario",
-            " de creación por componentes. Al guardar los cambios,",
+            "Editar.",
+            "Permite modificar el código del modelo en el mismo",
+            " editor de la creación. Al guardar los cambios,",
             " la aplicación vuelve a validar y compilar el modelo",
             " para comprobar que funciona correctamente."
           ),
           item(
-            "Añadir al catálogo / Retirar del catálogo:",
-            "permite compartir un modelo con el resto de usuarios",
+            "Añadir al catálogo / Retirar del catálogo.",
+            "Permite compartir un modelo con el resto de usuarios",
             " o volver a hacerlo privado. Los modelos publicados",
             " en el catálogo común pueden ser utilizados por",
             " otros usuarios para realizar simulaciones y",
             " análisis farmacocinéticos poblacionales."
           ),
           item(
-            "Eliminar:",
-            "permite eliminar un modelo de tu cuenta."
+            "Eliminar.",
+            "Permite eliminar un modelo de tu cuenta."
           ),
           item(
-            "Crear modelo nuevo:",
-            "abre la sección «Crear modelo», donde puedes",
+            "Crear modelo nuevo.",
+            "Abre la sección «Crear modelo», donde puedes",
             " construir y guardar un nuevo modelo farmacocinético."
           )
         )

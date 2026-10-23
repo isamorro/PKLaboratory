@@ -6,9 +6,10 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Construye y valida modelos farmacocinéticos por componentes, con expresiones
-# matemáticas analizadas y convertidas a código C++ sin evaluar código R, y
-# compila el código de mrgsolve generado a partir de ellos.
+# Valida y compila los modelos del usuario, que se escriben con código de
+# mrgsolve (ver model_code.R). Incluye el asistente por componentes, que
+# genera ese código a partir de expresiones matemáticas analizadas y
+# convertidas a C++ sin evaluar código R.
 # ============================================================
 
 # Límites de los datos que introduce el usuario.
@@ -53,7 +54,9 @@ check_model_name <- function(name, description, existing_ids) {
 
   errors <- character(0)
 
-  if (!is_valid_model_name(name)) {
+  if (is.null(name) || !nzchar(trimws(name))) {
+    errors <- c(errors, "Ponle un nombre al modelo antes de guardarlo.")
+  } else if (!is_valid_model_name(name)) {
     errors <- c(
       errors,
       paste0(
@@ -81,6 +84,16 @@ check_model_name <- function(name, description, existing_ids) {
   errors
 }
 
+# Escribe un número como literal decimal de C++ (5.0 y no 5), para que las
+# divisiones entre números no sean divisiones enteras.
+# Recibe: número finito.
+# Devuelve: texto del número.
+format_cpp_number <- function(x) {
+  text <- format(x, digits = 15, trim = TRUE, decimal.mark = ".")
+  if (!grepl("[.eE]", text)) text <- paste0(text, ".0")
+  text
+}
+
 # Convierte una expresión matemática a C++ a partir de un árbol validado.
 # No admite asignaciones, índices, namespaces, llamadas arbitrarias ni cadenas.
 # Recibe: cadena con la expresión matemática y vector de símbolos autorizados.
@@ -101,10 +114,7 @@ math_cpp <- function(text, symbols) {
     count <<- count + 1L
     if (depth > 40L || count > 250L) stop("Expresión demasiado compleja.")
     if ((is.double(x) || is.integer(x)) && length(x) == 1L && is.finite(x)) {
-      return(format(x,
-        digits = 17, scientific = TRUE, trim = TRUE,
-        decimal.mark = "."
-      ))
+      return(format_cpp_number(x))
     }
     if (is.name(x)) {
       name <- as.character(x)
@@ -186,7 +196,7 @@ valid_component_names <- function(n) {
     !grepl("^(dxdt_|F_|R_|D_|ALAG_|N_|A_0_|pred_)", n)
 }
 
-# Valida una especificación de modelo por componentes.
+# Valida una especificación de modelo: nombre, descripción y código.
 # Recibe: especificación del modelo y, opcionalmente, identificadores ya
 # usados para comprobar nombres duplicados.
 # Devuelve: vector de errores de validación; si todo es correcto, devuelve
@@ -196,6 +206,16 @@ validate_model_spec <- function(spec, existing_ids = NULL) {
   if (!is.null(existing_ids)) {
     errors <- check_model_name(spec$name, spec$description, existing_ids)
   }
+  c(errors, validate_model_code(spec$code))
+}
+
+# Valida los componentes del asistente (parámetros, compartimentos,
+# auxiliares, ecuaciones y salidas).
+# Recibe: componentes leídos del formulario del asistente.
+# Devuelve: vector de errores de validación; si todo es correcto, devuelve
+# un vector vacío.
+validate_components <- function(spec) {
+  errors <- character()
 
   groups <- list(spec$params, spec$initials, spec$auxiliary, spec$equations)
   if (!all(vapply(groups, is.list, logical(1)))) {
@@ -280,27 +300,18 @@ validate_model_spec <- function(spec, existing_ids = NULL) {
   errors
 }
 
-# Genera el código mrgsolve a partir de una especificación por componentes,
+# Genera el código mrgsolve a partir de los componentes del asistente,
 # manteniendo los cálculos auxiliares y las ecuaciones diferenciales en el
 # formato que acepta el compilador del modelo.
-# Recibe: especificación del modelo construida por componentes.
-# Devuelve: cadena de texto con el bloque de modelo listo para compilar.
-generate_model_code <- function(spec) {
-  errors <- validate_model_spec(spec)
+# Recibe: componentes leídos del formulario del asistente.
+# Devuelve: cadena de texto con el modelo listo para el editor de código.
+generate_component_code <- function(spec) {
+  errors <- validate_components(spec)
   if (length(errors)) stop(paste(errors, collapse = "\n"))
 
   values <- function(x) {
     vapply(names(x), function(n) {
-      paste0(
-        n, " = ",
-        format(
-          x[[n]],
-          digits = 17,
-          scientific = TRUE,
-          trim = TRUE,
-          decimal.mark = "."
-        )
-      )
+      paste0(n, " = ", format_cpp_number(x[[n]]))
     }, character(1))
   }
 
@@ -321,7 +332,7 @@ generate_model_code <- function(spec) {
   # Auxiliares declarados una sola vez y recalculados en ODE y TABLE.
   paste(
     c(
-      "// Generado por PKLaboratory: expresiones matemáticas validadas",
+      "// Generado con el asistente por componentes de PKLaboratory",
       if (length(spec$params)) c("$PARAM", values(spec$params), ""),
       "$INIT",
       values(spec$initials),
@@ -350,29 +361,41 @@ generate_model_code <- function(spec) {
 # Devuelve un resumen legible de la especificación para la interfaz y la
 # navegación entre modelos guardados.
 # Recibe: especificación del modelo.
-# Devuelve: texto descriptivo con número de compartimentos y parámetros.
+# Devuelve: texto con los bloques de mrgsolve que usa el modelo.
 describe_spec <- function(spec) {
-  sprintf(
-    "Ecuaciones propias · %d compartimentos · %d parámetros",
-    length(spec$initials),
-    length(spec$params)
+  paste(
+    "Código mrgsolve ·",
+    paste0("$", model_code_blocks(spec$code), collapse = " ")
   )
 }
 
 # Compila un modelo creado por el usuario y comprueba que se puede simular.
-# Si algo falla, lanza un error con el mensaje ya en español; el mensaje
-# original del compilador solo se escribe en la consola, para depuración.
+# Si algo falla, lanza un error en español con los mensajes del compilador,
+# para que el usuario sepa qué corregir.
 # Recibe: especificación del modelo (ya validada) y nombre interno único con
 # el que se compila (mrgsolve compila en una carpeta temporal compartida por
 # todas las sesiones, así que no puede repetirse).
 # Devuelve: modelo de mrgsolve compilado.
 compile_user_model <- function(spec, internal_name) {
 
+  # Se guardan los mensajes del compilador para explicar los errores.
+  output <- character()
   mod <- tryCatch(
-    mrgsolve::mcode(internal_name, generate_model_code(spec), quiet = TRUE),
+    withCallingHandlers(
+      mrgsolve::mcode(internal_name, spec$code, quiet = TRUE),
+      message = function(m) {
+        output <<- c(output, conditionMessage(m))
+        invokeRestart("muffleMessage")
+      }
+    ),
     error = function(e) {
       message("[mrgsolve] ", conditionMessage(e))
-      stop(compile_model_error, call. = FALSE)
+      details <- compiler_errors(output)
+      if (!length(details)) details <- conditionMessage(e)
+      stop(
+        paste(c(compile_code_error, details), collapse = "\n"),
+        call. = FALSE
+      )
     }
   )
 
@@ -391,9 +414,9 @@ compile_user_model <- function(spec, internal_name) {
     stop(unstable_model_error, call. = FALSE)
   }
 
-  # Las ecuaciones propias no dan significado a nombres como CL o V, así que
+  # Los modelos propios no dan significado a nombres como CL o V, así que
   # al simular no se aplican las reglas de los parámetros del catálogo.
-  attr(mod, "pk_components") <- TRUE
+  attr(mod, "pk_user_model") <- TRUE
   mod
 }
 

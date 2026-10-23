@@ -31,7 +31,7 @@ simulation_controller <- function(input, output, model) {
       n_doses = input$n_doses,
       interval = input$interval,
       end_time = input$end_time,
-      apply_param_rules = !isTRUE(attr(model(), "pk_components")),
+      apply_param_rules = !isTRUE(attr(model(), "pk_user_model")),
       infusion = input$infusion
     )
     if (length(errors) > 0) {
@@ -58,18 +58,7 @@ simulation_controller <- function(input, output, model) {
   })
 
   # Único lugar donde se muestran los errores (caja roja).
-  output$sim_errors <- renderUI({
-    errors <- sim_result()$errors
-    if (length(errors) == 0) {
-      return(NULL)
-    }
-
-    div(
-      class = "alert alert-danger",
-      role = "alert",
-      lapply(errors, div)
-    )
-  })
+  output$sim_errors <- renderUI(error_box(sim_result()$errors))
 
   # Datos de la simulación; si hubo errores, las salidas quedan vacías.
   reactive({

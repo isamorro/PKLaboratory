@@ -71,16 +71,9 @@ get_user_model <- function(db, model_id, username) {
 
 # Prepara la especificación del modelo para guardarla en la base de datos.
 # Recibe: especificación del modelo.
-# Devuelve: lista serializable con la versión y el contenido del modelo.
+# Devuelve: lista serializable con la versión y el código del modelo.
 serialize_model_spec <- function(spec) {
-  list(
-    version = 2L,
-    params = spec$params,
-    initials = spec$initials,
-    auxiliary = spec$auxiliary,
-    equations = spec$equations,
-    outputs = spec$outputs
-  )
+  list(version = 1L, code = spec$code)
 }
 
 # Normaliza la especificación guardada y la valida para evitar cargas
@@ -88,7 +81,7 @@ serialize_model_spec <- function(spec) {
 # Recibe: especificación guardada en la base de datos.
 # Devuelve: especificación válida lista para recompilar con mrgsolve.
 normalize_saved_spec <- function(spec) {
-  if (!is.list(spec) || !identical(spec$version, 2L)) {
+  if (!is.list(spec) || !identical(spec$version, 1L)) {
     stop("Versión de especificación no admitida.", call. = FALSE)
   }
   spec$version <- NULL
@@ -182,6 +175,25 @@ set_model_shared <- function(db, model_id, username, shared) {
   invisible(NULL)
 }
 
+# Convierte un valor a JSON para guardarlo en la base de datos.
+# Recibe: valor de R.
+# Devuelve: texto JSON.
+to_json <- function(x) {
+  as.character(jsonlite::toJSON(x, auto_unbox = TRUE, digits = NA))
+}
+
+# Obtiene, en JSON, los parámetros, los compartimentos y las variables de
+# salida de un modelo compilado, para guardarlos junto a su código.
+# Recibe: objeto mrgsolve.
+# Devuelve: lista con params, compartments y outputs.
+model_metadata <- function(mod) {
+  list(
+    params = to_json(get_model_params(mod)),
+    compartments = to_json(as.list(get_model_cmt(mod))),
+    outputs = to_json(as.list(mrgsolve::outvars(mod)$capture))
+  )
+}
+
 # Guarda un modelo previamente validado y compilado en la cuenta del usuario.
 # Por defecto es privado; se comparte después con set_model_shared().
 # Recibe: conexión, especificación del modelo, objeto mrgsolve y usuario.
@@ -206,12 +218,7 @@ save_user_model <- function(db, spec, mod, username) {
                  max_user_models), call. = FALSE)
   }
 
-  saved <- serialize_model_spec(spec)
-  normalize_saved_spec(saved)
-
-  json <- function(x) {
-    as.character(jsonlite::toJSON(x, auto_unbox = TRUE, digits = NA))
-  }
+  meta <- model_metadata(mod)
 
   DBI::dbGetQuery(
     db,
@@ -226,11 +233,11 @@ save_user_model <- function(db, spec, mod, username) {
     params = list(
       trimws(spec$name),
       spec$description,
-      generate_model_code(spec),
-      json(spec$params),
-      json(as.list(get_model_cmt(mod))),
-      json(as.list(spec$outputs)),
-      json(saved),
+      spec$code,
+      meta$params,
+      meta$compartments,
+      meta$outputs,
+      to_json(serialize_model_spec(spec)),
       username
     )
   )$id[[1]]
@@ -244,12 +251,7 @@ update_user_model <- function(db, model_id, spec, mod, username) {
   problems <- validate_model_spec(spec, existing_ids = character(0))
   if (length(problems)) stop(paste(problems, collapse = "\n"), call. = FALSE)
 
-  saved <- serialize_model_spec(spec)
-  normalize_saved_spec(saved)
-
-  json <- function(x) {
-    as.character(jsonlite::toJSON(x, auto_unbox = TRUE, digits = NA))
-  }
+  meta <- model_metadata(mod)
 
   changed <- DBI::dbExecute(
     db,
@@ -262,11 +264,11 @@ update_user_model <- function(db, model_id, spec, mod, username) {
     params = list(
       trimws(spec$name),
       spec$description,
-      generate_model_code(spec),
-      json(spec$params),
-      json(as.list(get_model_cmt(mod))),
-      json(as.list(spec$outputs)),
-      json(saved),
+      spec$code,
+      meta$params,
+      meta$compartments,
+      meta$outputs,
+      to_json(serialize_model_spec(spec)),
       as.character(model_id),
       as.character(username)
     )

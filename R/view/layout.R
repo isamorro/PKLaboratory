@@ -101,3 +101,17 @@ page_empty <- function(title, text, ...) {
     ...
   )
 }
+
+# Enlace externo que se abre en una pestaña nueva. Sin espacio detrás,
+# porque suele seguirle un signo de puntuación.
+# Recibe: dirección y texto del enlace.
+# Devuelve: etiqueta <a>.
+external_link <- function(href, text) {
+  shiny::tags$a(
+    href = href,
+    target = "_blank",
+    rel = "noopener noreferrer",
+    text,
+    .noWS = "after"
+  )
+}

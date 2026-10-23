@@ -7,8 +7,8 @@
 #
 # Descripción:
 # Permite editar modelos propios desde un diálogo modal sin crear
-# duplicados ni destruir el catálogo local. Reusa la misma lógica del
-# formulario por componentes para compilar y validar la edición.
+# duplicados ni destruir el catálogo local. Reusa el mismo editor de código
+# del constructor para compilar y validar la edición.
 # ============================================================
 
 # Edita un modelo propio en una ventana modal, sin crear duplicados.
@@ -46,11 +46,11 @@ model_editor_controller <- function(
 
     spec <- models[[id]]$spec
     modal <- shiny::modalDialog(
-      title = "Editar modelo por componentes",
+      title = "Editar modelo",
       size = "l",
       easyClose = FALSE,
       shiny::uiOutput("edit_errors"),
-      component_form(ns, spec),
+      code_form(ns, spec, tools = FALSE),
       footer = shiny::tagList(
         shiny::modalButton("Cancelar"),
         shiny::actionButton(
@@ -66,18 +66,9 @@ model_editor_controller <- function(
   })
 
   # Muestra errores de validación durante la edición.
-  output$edit_errors <- renderUI({
-    messages <- problems()
-    if (length(messages) == 0) {
-      return(NULL)
-    }
+  output$edit_errors <- renderUI(error_box(problems()))
 
-    div(
-      class = "alert alert-danger",
-      role = "alert",
-      lapply(messages, div)
-    )
-  })
+  reject_save <- error_reporter(problems, "No se han guardado los cambios")
 
   # Guarda los cambios del modelo editado.
   observeEvent(input$edit_save, {
@@ -87,22 +78,12 @@ model_editor_controller <- function(
     shiny::req(e, user)
 
     if (!(e$id %in% names(models))) {
-      problems("Este modelo ya no está disponible.")
+      reject_save("Este modelo ya no está disponible.")
       return()
     }
 
     previous <- models[[e$id]]
-    spec <- tryCatch(
-      read_component_form(input, e$ns),
-      error = function(err) {
-        problems(conditionMessage(err))
-        NULL
-      }
-    )
-    if (is.null(spec)) {
-      return()
-    }
-
+    spec <- read_model_form(input, e$ns)
     others <- models[setdiff(names(models), e$id)]
     invalid <- validate_model_spec(
       spec,
@@ -111,10 +92,11 @@ model_editor_controller <- function(
         vapply(others, function(m) model_id_from_name(m$label), character(1))
       )
     )
-    problems(invalid)
     if (length(invalid)) {
+      reject_save(invalid)
       return()
     }
+    problems(character())
 
     serial <<- serial + 1L
     result <- tryCatch({
@@ -136,7 +118,7 @@ model_editor_controller <- function(
 
       list(mod = mod)
     }, error = function(err) {
-      problems(paste("No se han guardado los cambios:", conditionMessage(err)))
+      reject_save(conditionMessage(err))
       NULL
     })
     if (is.null(result)) {

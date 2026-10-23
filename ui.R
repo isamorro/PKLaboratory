@@ -21,6 +21,10 @@ pk_theme <- bslib::bs_theme(
   heading_font = bslib::font_google("Inter", local = FALSE)
 )
 
+# La guía de uso es igual para todos los usuarios: se construye una sola
+# vez al arrancar, no en cada inicio de sesión.
+help_page <- help_ui()
+
 # Interfaz de usuario de la aplicación principal.
 # Recibe: opciones del selector de modelos y modelo seleccionado, para que
 # los modelos del usuario ya estén en el selector desde el primer momento.
@@ -75,7 +79,7 @@ main_app_ui <- function(model_choices = list_models(),
     bslib::nav_panel(
       title = "Guía de uso",
       value = "help",
-      help_ui()
+      help_page
     ),
 
     bslib::nav_spacer(),

@@ -157,7 +157,7 @@ home_ui <- function() {
           "home_open_population", "population", "Análisis poblacional",
           paste(
             "Ajusta un modelo mixto no lineal a datos de varios pacientes,",
-            "como Theoph o Indometh, con cualquier modelo de la aplicación."
+            "como Theoph, con cualquier modelo de la aplicación."
           ),
           "green"
         ),

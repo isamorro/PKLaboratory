@@ -84,7 +84,12 @@ population_controller <- function(input, output, session, user_models,
         model()
         NULL
       },
-      error = function(e) conditionMessage(e)
+      error = function(e) {
+        # Mientras se crea el selector, req() detiene model() con un error
+        # silencioso: no es un fallo, así que no se muestra ningún aviso.
+        if (inherits(e, "shiny.silent.error")) stop(e)
+        conditionMessage(e)
+      }
     )
   })
 
@@ -550,8 +555,7 @@ population_controller <- function(input, output, session, user_models,
   # ---- Opciones del análisis (las decide el usuario) ------------------
 
   # Escala de cada parámetro en el ajuste: logarítmica (por defecto, como
-  # lKe, lKa y lCl en Theoph) o natural (como A1 y A2 de SSbiexp en
-  # Indometh).
+  # lKe, lKa y lCl en Theoph) o natural (sin transformar).
   output[[id("scales")]] <- shiny::renderUI({
     st <- structure_or_null()
     if (is.null(st) || !isTRUE(st$ok)) {
@@ -813,6 +817,57 @@ population_controller <- function(input, output, session, user_models,
     )
   }
 
+  # Lanza un ajuste en un proceso aparte sin bloquear la aplicación
+  # (ExtendedTask): mientras dura, esta sesión y las de los demás usuarios
+  # siguen respondiendo, y las salidas que dependen del ajuste se muestran
+  # como «calculando».
+  # Recibe: id del botón; prepare(), que reúne los datos del ajuste y
+  # devuelve una lista con run (función que lanza el ajuste y devuelve su
+  # promesa) y finish (convierte su resultado en lo que muestran las
+  # salidas), y los textos de la barra de progreso. Si prepare() falla, el
+  # error se muestra al momento.
+  # Devuelve: lista con result (reactive con el resultado o el error, ver
+  # fit_failure()) y running (reactive, TRUE mientras dura el ajuste).
+  background_fit <- function(button, prepare, ...) {
+    prepare_error <- shiny::reactiveVal(NULL)
+    task <- shiny::ExtendedTask$new(function(job) {
+      progress <- shiny::Progress$new(session)
+      progress$set(..., value = 0.3)
+      promises::finally(
+        promises::catch(promises::then(job$run(), job$finish), fit_failure),
+        function() progress$close()
+      )
+    })
+    shiny::observeEvent(input[[id(button)]], {
+      job <- tryCatch(prepare(), error = function(e) {
+        prepare_error(fit_failure(e))
+        NULL
+      })
+      if (!is.null(job)) {
+        prepare_error(NULL)
+        task$invoke(job)
+      }
+    })
+    list(
+      result = shiny::reactive({
+        error <- prepare_error()
+        if (is.null(error)) task$result() else error
+      }),
+      running = shiny::reactive(task$status() == "running")
+    )
+  }
+
+  # Aviso mientras se ajusta en segundo plano.
+  # Recibe: texto del aviso.
+  # Devuelve: alerta informativa.
+  running_ui <- function(text) {
+    shiny::div(
+      class = "alert alert-info pk-pop-alert",
+      shiny::strong(text), " Puede tardar de segundos a varios minutos;",
+      "mientras tanto puedes seguir usando la aplicación."
+    )
+  }
+
   # Nombre de un parámetro de los ajustes individuales, con log() si se
   # estima en escala logarítmica.
   # Recibe: nombres de los parámetros y parámetros en escala log.
@@ -837,17 +892,17 @@ population_controller <- function(input, output, session, user_models,
   })
 
   # Resultado de pulsar "Ajustar cada paciente": estimaciones o error.
-  individual <- shiny::eventReactive(input[[id("individual")]], {
-    tryCatch(
-      {
-        a <- fit_inputs()
-        chosen <- input[[id("individual_params")]]
-        if (!length(chosen)) {
-          stop("Marca al menos un parámetro para ajustar cada paciente.")
-        }
-        a$fixed <- union(a$fixed, setdiff(a$st$params, chosen))
-        fits <- shiny::withProgress(
-          message = "Ajustando cada paciente por separado...", value = 0.3,
+  individual_fit <- background_fit(
+    "individual",
+    function() {
+      a <- fit_inputs()
+      chosen <- input[[id("individual_params")]]
+      if (!length(chosen)) {
+        stop("Marca al menos un parámetro para ajustar cada paciente.")
+      }
+      a$fixed <- union(a$fixed, setdiff(a$st$params, chosen))
+      list(
+        run = function() {
           population_run_isolated(
             "population_individual_fits",
             list(
@@ -855,18 +910,24 @@ population_controller <- function(input, output, session, user_models,
               a$dose_column, a$observed, a$fixed
             )
           )
-        )
-        # Valores con los que se han dejado fijos los no marcados, para
-        # explicar los ajustes que fallen.
-        fixed <- a$st$values[setdiff(a$fixed, attr(fits, "inert"))]
-        list(ok = TRUE, fits = fits, chosen = chosen, fixed = fixed)
-      },
-      error = fit_failure
-    )
-  })
+        },
+        finish = function(fits) {
+          # Valores con los que se han dejado fijos los no marcados, para
+          # explicar los ajustes que fallen.
+          fixed <- a$st$values[setdiff(a$fixed, attr(fits, "inert"))]
+          list(ok = TRUE, fits = fits, chosen = chosen, fixed = fixed)
+        }
+      )
+    },
+    message = "Ajustando cada paciente por separado..."
+  )
+  individual <- individual_fit$result
 
   # Resumen de los ajustes individuales y botón para usar sus medianas.
   output[[id("individual_status")]] <- shiny::renderUI({
+    if (individual_fit$running()) {
+      return(running_ui("Ajustando cada paciente por separado…"))
+    }
     res <- individual()
     if (!isTRUE(res$ok)) {
       return(fit_error_ui(
@@ -1013,41 +1074,45 @@ population_controller <- function(input, output, session, user_models,
   # ---- Modelo mixto ---------------------------------------------------
 
   # Resultado de pulsar "Estimar parámetros": tablas del ajuste o error.
-  pop_fit <- shiny::eventReactive(input[[id("fit")]], {
-    tryCatch(
-      {
-        a <- fit_inputs()
-        random <- input[[id("estimate_random")]]
-        if (!length(random)) {
-          stop("Selecciona al menos un parámetro que varíe entre pacientes.")
-        }
-        omega <- input[[id("omega")]]
-        if (is.null(omega)) omega <- "diag"
-        effects <- input[[id("cov_effects")]]
-        if (is.null(effects)) effects <- character()
-        cov_form <- input[[id("cov_form")]]
-        if (is.null(cov_form)) cov_form <- "power"
-        result <- shiny::withProgress(
-          message = "Ajustando el modelo mixto...",
-          detail = "Puede tardar unos minutos.", value = 0.3,
+  mixed_fit <- background_fit(
+    "fit",
+    function() {
+      a <- fit_inputs()
+      random <- input[[id("estimate_random")]]
+      if (!length(random)) {
+        stop("Selecciona al menos un parámetro que varíe entre pacientes.")
+      }
+      omega <- input[[id("omega")]]
+      if (is.null(omega)) omega <- "diag"
+      effects <- input[[id("cov_effects")]]
+      if (is.null(effects)) effects <- character()
+      cov_form <- input[[id("cov_form")]]
+      if (is.null(cov_form)) cov_form <- "power"
+      error_model <- input[[id("error_model")]]
+      list(
+        run = function() {
           population_fit_isolated(
             a$dat, a$st, a$response, a$group, a$time, a$dose_cmt,
-            random, effects, input[[id("error_model")]],
+            random, effects, error_model,
             cov_form, a$dose_column, a$observed, a$fixed, omega
           )
-        )
-        c(
-          list(
-            ok = TRUE,
-            has_ci = any(is.finite(result$fixed$IC95_inferior)),
-            log = attr(result, "log")
-          ),
-          result
-        )
-      },
-      error = fit_failure
-    )
-  })
+        },
+        finish = function(result) {
+          c(
+            list(
+              ok = TRUE,
+              has_ci = any(is.finite(result$fixed$IC95_inferior)),
+              log = attr(result, "log")
+            ),
+            result
+          )
+        }
+      )
+    },
+    message = "Ajustando el modelo mixto...",
+    detail = "Puede tardar unos minutos."
+  )
+  pop_fit <- mixed_fit$result
 
   # Indicador para los conditionalPanel: el ajuste ha terminado bien.
   output[[id("fit_ok")]] <- shiny::reactive(isTRUE(pop_fit()$ok))
@@ -1120,6 +1185,9 @@ population_controller <- function(input, output, session, user_models,
 
   # Pacientes y parámetros del ajuste, o el error.
   output[[id("fit_status")]] <- shiny::renderUI({
+    if (mixed_fit$running()) {
+      return(running_ui("Ajustando el modelo mixto…"))
+    }
     res <- pop_fit()
     if (!isTRUE(res$ok)) {
       return(fit_error_ui(
