@@ -60,6 +60,25 @@ model_controller <- function(input, output, session, user_models,
     )
   })
 
+  # Descripción del modelo seleccionado, junto al selector
+  output$model_description <- renderUI({
+    text <- model_description(input$model_id, user_models(), shared_models())
+    if (nzchar(text)) shiny::p(text)
+  })
+
+  # Ventana con el código del modelo seleccionado. Antes se carga el modelo,
+  # para que los compartidos estén en la caché.
+  observeEvent(input$model_code_view, {
+    id <- input$model_id
+    shiny::req(id)
+    model()
+    showModal(model_code_modal(
+      model_label(id, user_models(), shared_models()),
+      model_description(id, user_models(), shared_models()),
+      model_source_code(id, user_models(), shared_cache)
+    ))
+  })
+
   # Formulario de parámetros según el modelo
   output$param_inputs <- renderUI({
     shiny::req(model())

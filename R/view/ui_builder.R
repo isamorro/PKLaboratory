@@ -182,7 +182,7 @@ component_form <- function(prefix) {
         ),
         shiny::p(
           class = "pk-component-note",
-          "Una ecuación por compartimento. Sin dxdt_ ni punto y coma."
+          "Una ecuación por compartimento."
         ),
         accent = "coral"
       )

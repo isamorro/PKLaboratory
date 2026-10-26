@@ -102,6 +102,27 @@ page_empty <- function(title, text, ...) {
   )
 }
 
+# Ventana con el código mrgsolve de un modelo, solo para consultarlo.
+# Recibe: nombre, descripción y código del modelo (NULL si no se tiene).
+# Devuelve: diálogo modal de Shiny.
+model_code_modal <- function(name, description, code) {
+  modal <- shiny::modalDialog(
+    title = name,
+    size = "l",
+    easyClose = TRUE,
+    if (nzchar(description)) {
+      shiny::p(class = "pk-code-description", description)
+    },
+    if (is.null(code)) {
+      shiny::p("No se ha podido obtener el código del modelo.")
+    } else {
+      shiny::tags$pre(class = "pk-code-view", code)
+    },
+    footer = shiny::modalButton("Cerrar")
+  )
+  htmltools::tagAppendAttributes(modal, class = "pk-editor-modal")
+}
+
 # Enlace externo que se abre en una pestaña nueva. Sin espacio detrás,
 # porque suele seguirle un signo de puntuación.
 # Recibe: dirección y texto del enlace.

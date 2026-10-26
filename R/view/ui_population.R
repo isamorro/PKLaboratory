@@ -49,7 +49,13 @@ population_ui <- function() {
     page_bar(
       "Análisis poblacional",
       shiny::uiOutput(id("catalog_selector")),
+      shiny::actionButton(
+        id("model_code_view"), "Ver código",
+        class = "btn-outline-primary btn-sm"
+      ),
       shiny::uiOutput(id("model_details"), class = "pk-pop-modelbar-info"),
+      shiny::uiOutput(id("model_description"),
+                      class = "pk-pagebar-description"),
       right = shiny::div(
         class = "pk-pop-segmented pk-pop-stepper",
         shiny::radioButtons(

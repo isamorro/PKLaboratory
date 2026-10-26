@@ -25,6 +25,68 @@ default_model_id <- "pk1"
 # Número máximo de modelos propios por cuenta.
 max_user_models <- 10
 
+# Descripción de los modelos de la biblioteca de mrgsolve que describe su
+# documentación (?modlib_pk, ?modlib_pkpd, ?modlib_tmdd y ?modlib_viral,
+# https://cran.r-project.org/web/packages/mrgsolve/refman/mrgsolve.html).
+# Las descripciones se limitan a lo que dice esa documentación; los demás
+# modelos de la biblioteca se muestran sin descripción.
+library_descriptions <- c(
+  "effect" = "Modelo con compartimento del efecto.",
+  "emax" = paste(
+    "Modelo Emax sigmoide, con un modelo PK bicompartimental con absorción",
+    "desde dos compartimentos extravasculares y aclaramiento lineal y no",
+    "lineal."
+  ),
+  "irm1" = paste(
+    "Modelo de respuesta indirecta: inhibición de la producción de la",
+    "respuesta. Incluye un modelo PK bicompartimental con absorción desde dos",
+    "compartimentos extravasculares y aclaramiento lineal y no lineal."
+  ),
+  "irm2" = paste(
+    "Modelo de respuesta indirecta: inhibición de la eliminación de la",
+    "respuesta. Incluye un modelo PK bicompartimental con absorción desde dos",
+    "compartimentos extravasculares y aclaramiento lineal y no lineal."
+  ),
+  "irm3" = paste(
+    "Modelo de respuesta indirecta: estimulación de la producción de la",
+    "respuesta. Incluye un modelo PK bicompartimental con absorción desde dos",
+    "compartimentos extravasculares y aclaramiento lineal y no lineal."
+  ),
+  "irm4" = paste(
+    "Modelo de respuesta indirecta: estimulación de la eliminación de la",
+    "respuesta. Incluye un modelo PK bicompartimental con absorción desde dos",
+    "compartimentos extravasculares y aclaramiento lineal y no lineal."
+  ),
+  "pk1" = "Modelo PK monocompartimental en forma cerrada.",
+  "pk1cmt" = paste(
+    "Modelo PK monocompartimental con ecuaciones diferenciales, con dos",
+    "compartimentos de administración extravascular y aclaramiento lineal y",
+    "no lineal."
+  ),
+  "pk2" = "Modelo PK bicompartimental en forma cerrada.",
+  "pk2cmt" = paste(
+    "Modelo PK bicompartimental con ecuaciones diferenciales, con dos",
+    "compartimentos de administración extravascular y aclaramiento lineal y",
+    "no lineal."
+  ),
+  "pk3" = "Modelo PK tricompartimental en forma cerrada.",
+  "pk3cmt" = paste(
+    "Modelo PK tricompartimental con ecuaciones diferenciales, con dos",
+    "compartimentos de administración extravascular y aclaramiento lineal y",
+    "no lineal."
+  ),
+  "popex" = "Modelo PK poblacional sencillo.",
+  "tmdd" = "Modelo de disposición mediada por la diana.",
+  "viral1" = paste(
+    "Modelo de dinámica viral de la hepatitis C con una sola especie de",
+    "virus."
+  ),
+  "viral2" = paste(
+    "Modelo de dinámica viral de la hepatitis C con virus salvaje y",
+    "mutante."
+  )
+)
+
 # Obtiene los identificadores de los modelos disponibles en mrgsolve.
 # Devuelve: vector de nombres ordenados alfabéticamente.
 list_models <- function() {
@@ -136,6 +198,60 @@ model_label <- function(model_id, user_models, shared_models = NULL) {
     }
   }
   model_id
+}
+
+# Obtiene la descripción de un modelo para mostrarla junto al selector.
+# Recibe: identificador del modelo, lista de modelos propios y data.frame del
+# catálogo compartido.
+# Devuelve: descripción del modelo; "" si no tiene.
+model_description <- function(model_id, user_models, shared_models = NULL) {
+  if (length(model_id) != 1L || is.na(model_id)) {
+    return("")
+  }
+  text <- NULL
+  own <- user_models[[model_id]]
+  if (!is.null(own)) {
+    text <- own$description
+  } else if (!is.null(shared_models) && nrow(shared_models)) {
+    row <- shared_models[paste0("db_", shared_models$id) == model_id, ,
+                         drop = FALSE]
+    if (nrow(row)) {
+      text <- row$description[[1]]
+    }
+  }
+  if (is.null(text) && model_id %in% list_models()) {
+    text <- if (model_id %in% names(library_descriptions)) {
+      library_descriptions[[model_id]]
+    } else {
+      "Sin descripción oficial en la documentación de mrgsolve."
+    }
+  }
+  if (length(text) != 1L || is.na(text)) "" else text
+}
+
+# Obtiene el código mrgsolve de un modelo para que el usuario lo consulte.
+# Los modelos compartidos se leen de la caché, donde quedan al cargarlos.
+# Recibe: identificador del modelo, lista de modelos propios y caché de
+# modelos compartidos.
+# Devuelve: código del modelo; NULL si no se ha podido obtener.
+model_source_code <- function(model_id, user_models, shared_cache = NULL) {
+  if (length(model_id) != 1L || is.na(model_id)) {
+    return(NULL)
+  }
+  own <- user_models[[model_id]]
+  if (!is.null(own)) {
+    return(own$spec$code)
+  }
+  if (!is.null(shared_cache) && !is.null(shared_cache[[model_id]])) {
+    return(shared_cache[[model_id]]$spec$code)
+  }
+  if (model_id %in% list_models()) {
+    file <- system.file("models", paste0(model_id, ".cpp"),
+                        package = "mrgsolve")
+    return(paste(readLines(file, warn = FALSE, encoding = "UTF-8"),
+                 collapse = "\n"))
+  }
+  NULL
 }
 
 # Obtiene los parámetros numéricos del modelo.

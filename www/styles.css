@@ -1102,6 +1102,42 @@ h4 {
   font-size: 0.8rem;
 }
 
+/* Ventana con el código del modelo: descripción y código monoespaciado,
+   sin partir las líneas. */
+.pk-code-description {
+  margin: 0 0 14px;
+  color: var(--pk-muted);
+  font-size: 0.9rem;
+}
+
+.pk-code-view {
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  border: 1px solid var(--pk-border);
+  border-radius: 12px;
+  background: var(--pk-surface);
+  color: var(--pk-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+/* Descripción del modelo seleccionado, junto al selector. */
+.pk-pagebar-description {
+  flex: 1 1 280px;
+  max-width: 560px;
+  min-width: 0;
+}
+
+.pk-pagebar-description p {
+  margin: 0;
+  color: var(--pk-muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .pk-pagebar-right {
   display: flex;
   flex-wrap: wrap;

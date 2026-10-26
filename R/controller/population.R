@@ -55,6 +55,25 @@ population_controller <- function(input, output, session, user_models,
     )
   })
 
+  # Descripción del modelo seleccionado, junto al selector.
+  output[[id("model_description")]] <- shiny::renderUI({
+    text <- model_description(input[[id("catalog")]], user_models(), shared())
+    if (nzchar(text)) shiny::p(text)
+  })
+
+  # Ventana con el código del modelo seleccionado. Antes se carga el
+  # modelo, para que los compartidos estén en la caché.
+  shiny::observeEvent(input[[id("model_code_view")]], {
+    selected <- input[[id("catalog")]]
+    shiny::req(length(selected) == 1L, !is.na(selected))
+    tryCatch(model(), error = function(e) NULL)
+    shiny::showModal(model_code_modal(
+      model_label(selected, user_models(), shared()),
+      model_description(selected, user_models(), shared()),
+      model_source_code(selected, user_models(), shared_cache)
+    ))
+  })
+
   # Modelo seleccionado, con el mismo cargador que la página de
   # simulación (biblioteca, propios y catálogo compartido).
   model <- shiny::reactive({

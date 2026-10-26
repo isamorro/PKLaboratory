@@ -31,7 +31,12 @@ simulation_ui <- function(model_choices = list_models(),
           choices = model_choices,
           selected = selected_model
         )
-      )
+      ),
+      shiny::actionButton(
+        "model_code_view", "Ver código",
+        class = "btn-outline-primary btn-sm"
+      ),
+      shiny::uiOutput("model_description", class = "pk-pagebar-description")
     ),
 
     page_workspace(

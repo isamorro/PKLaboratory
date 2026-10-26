@@ -1080,10 +1080,6 @@ help_ui <- function() {
                 "como valores iniciales»."
               ),
               shiny::tags$li("Pulsa «Estimar parámetros».")
-            ),
-            shiny::p(
-              "Obtendrás un CL de unos 2,7 L/h, una KE de unos 0,086 1/h y",
-              "una KA de unos 1,6 1/h."
             )
           )
         ),
