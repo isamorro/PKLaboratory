@@ -305,12 +305,10 @@ population_prepare_covariates <- function(dat, detected) {
 # concentración baja desde la primera medida no hay fase de absorción, y
 # al revés).
 # Recibe: estructura del modelo (population_structure()), datos, columnas
-# del paciente, tiempo, concentración y dosis (NULL si no hay) y
-# compartimento de la dosis.
+# del paciente, tiempo y concentración y compartimento de la dosis.
 # Devuelve: lista con missing (datos que faltan: el modelo no se puede
 # ajustar) y warnings (avisos: se puede ajustar, pero conviene revisarlo).
-population_check_data <- function(st, dat, group, time, response,
-                                  dose_column, dose_cmt) {
+population_check_data <- function(st, dat, group, time, response, dose_cmt) {
   missing <- character()
   warnings <- character()
   y <- dat[[response]]

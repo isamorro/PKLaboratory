@@ -27,6 +27,10 @@ download_name <- function(model_name, ext) {
 results_controller <- function(input, output, session, simulation,
                                model_label = identity) {
 
+  # Modelo con el que se obtuvieron los resultados: el título del gráfico y
+  # los nombres de las descargas no cambian si después se elige otro modelo.
+  simulated_model <- eventReactive(simulation(), isolate(input$model_id))
+
   # Variables disponibles tras simular; se mantiene la selección si sigue
   # siendo válida.
   observeEvent(simulation(), {
@@ -50,7 +54,7 @@ results_controller <- function(input, output, session, simulation,
         all(input$plot_vars %in% names(data))
       )
 
-      create_pk_plot(data, input$plot_vars, model_label(input$model_id))
+      create_pk_plot(data, input$plot_vars, model_label(simulated_model()))
     },
     height = function() plot_height(length(input$plot_vars))
   )
@@ -64,7 +68,7 @@ results_controller <- function(input, output, session, simulation,
 
   # Descarga de todos los resultados.
   output$download_csv <- downloadHandler(
-    filename = function() download_name(model_label(input$model_id), "csv"),
+    filename = function() download_name(model_label(simulated_model()), "csv"),
     content = function(file) {
       utils::write.csv(simulation(), file, row.names = FALSE)
     }
@@ -72,7 +76,7 @@ results_controller <- function(input, output, session, simulation,
 
   # Misma descarga con separador ";" y coma decimal, para Excel en español.
   output$download_csv_excel <- downloadHandler(
-    filename = function() download_name(model_label(input$model_id), "csv"),
+    filename = function() download_name(model_label(simulated_model()), "csv"),
     content = function(file) {
       utils::write.csv2(simulation(), file, row.names = FALSE)
     }
@@ -80,7 +84,7 @@ results_controller <- function(input, output, session, simulation,
 
   # Descarga del gráfico.
   output$download_plot <- downloadHandler(
-    filename = function() download_name(model_label(input$model_id), "png"),
+    filename = function() download_name(model_label(simulated_model()), "png"),
     content = function(file) {
       data <- simulation()
       shiny::req(
@@ -91,7 +95,7 @@ results_controller <- function(input, output, session, simulation,
       ggplot2::ggsave(
         file,
         plot = create_pk_plot(
-          data, input$plot_vars, model_label(input$model_id)
+          data, input$plot_vars, model_label(simulated_model())
         ),
         device = "png",
         width = 10,

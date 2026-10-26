@@ -6,101 +6,14 @@
 # URL: https://pklaboratory.shinyapps.io/pklaboratory/
 #
 # Descripción:
-# Define la interfaz de usuario de PKLaboratory y organiza sus
-# páginas de navegación. El contenido de cada página está en R/view/.
+# Define la interfaz de usuario de PKLaboratory: la animación de entrada y
+# el contenedor donde se muestra el inicio de sesión o la aplicación
+# principal (main_app_ui(), en R/view/ui_main.R). El contenido de cada
+# página está en R/view/.
 # ============================================================
 
-# Tema de la aplicación.
-pk_theme <- bslib::bs_theme(
-  version = 5,
-  primary = "#187A5B",
-  secondary = "#64746D",
-  bg = "#F7FAF8",
-  fg = "#243D33",
-  base_font = bslib::font_google("Inter", local = FALSE),
-  heading_font = bslib::font_google("Inter", local = FALSE)
-)
-
-# La guía de uso es igual para todos los usuarios: se construye una sola
-# vez al arrancar, no en cada inicio de sesión.
-help_page <- help_ui()
-
-# Interfaz de usuario de la aplicación principal.
-# Recibe: opciones del selector de modelos y modelo seleccionado, para que
-# los modelos del usuario ya estén en el selector desde el primer momento.
-# Devuelve: barra de navegación con las páginas de la aplicación.
-main_app_ui <- function(model_choices = list_models(),
-                        selected_model = default_model_id) {
-  bslib::page_navbar(
-    id = "main_nav",
-    title = shiny::span(
-      class = "pk-brand",
-      shiny::span(class = "pk-brand-mark", "PK"),
-      shiny::span(class = "pk-brand-name", "PKLaboratory")
-    ),
-    window_title = "PKLaboratory",
-    lang = "es",
-    fillable = FALSE,
-
-    theme = pk_theme,
-
-    header = NULL,
-
-    bslib::nav_panel(
-      title = "Inicio",
-      value = "home",
-      home_ui()
-    ),
-
-    bslib::nav_panel(
-      title = "Simulación",
-      value = "simulation",
-      simulation_ui(model_choices, selected_model)
-    ),
-
-    bslib::nav_panel(
-      title = "Crear modelo",
-      value = "builder",
-      builder_ui()
-    ),
-
-    bslib::nav_panel(
-      title = "Análisis poblacional",
-      value = "population",
-      population_ui()
-    ),
-
-    bslib::nav_panel(
-      title = "Mis modelos",
-      value = "models",
-      models_ui()
-    ),
-
-    bslib::nav_panel(
-      title = "Guía de uso",
-      value = "help",
-      help_page
-    ),
-
-    bslib::nav_spacer(),
-
-    bslib::nav_item(
-      shiny::actionButton(
-        "logout",
-        "Cerrar sesión",
-        class = "btn btn-primary btn-sm pk-cta"
-      )
-    ),
-
-    footer = shiny::tags$footer(
-      class = "pk-footer",
-      "PKLaboratory · Proyecto TFG"
-    )
-  )
-}
-
-# Interfaz de usuario de la aplicación principal, con login.
-# Devuelve: página de navegación con las páginas de la aplicación.
+# Interfaz de usuario de la aplicación, con login.
+# Devuelve: página con la animación de entrada y el contenido de app_page.
 ui <- shiny::fluidPage(
   theme = pk_theme,
   title = "PKLaboratory",

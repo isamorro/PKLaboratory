@@ -28,8 +28,8 @@ max_user_models <- 10
 # Descripción de los modelos de la biblioteca de mrgsolve que describe su
 # documentación (?modlib_pk, ?modlib_pkpd, ?modlib_tmdd y ?modlib_viral,
 # https://cran.r-project.org/web/packages/mrgsolve/refman/mrgsolve.html).
-# Las descripciones se limitan a lo que dice esa documentación; los demás
-# modelos de la biblioteca se muestran sin descripción.
+# Las descripciones se limitan a lo que dice esa documentación; para los
+# demás modelos de la biblioteca se indica que no tienen descripción oficial.
 library_descriptions <- c(
   "effect" = "Modelo con compartimento del efecto.",
   "emax" = paste(
@@ -177,6 +177,18 @@ model_choices <- function(user_models, shared_models = NULL) {
   choices
 }
 
+# Busca un modelo en el catálogo compartido.
+# Recibe: identificador del modelo y data.frame del catálogo compartido.
+# Devuelve: fila del modelo; NULL si no está en el catálogo.
+shared_model_row <- function(model_id, shared_models) {
+  if (is.null(shared_models) || !nrow(shared_models)) {
+    return(NULL)
+  }
+  row <- shared_models[paste0("db_", shared_models$id) == model_id, ,
+                       drop = FALSE]
+  if (nrow(row)) row else NULL
+}
+
 # Obtiene el nombre con el que mostrar un modelo (en el gráfico y en los
 # archivos descargados), en lugar de su identificador interno.
 # Recibe: identificador del modelo, lista de modelos propios y data.frame del
@@ -190,12 +202,9 @@ model_label <- function(model_id, user_models, shared_models = NULL) {
   if (!is.null(own)) {
     return(own$label)
   }
-  if (!is.null(shared_models) && nrow(shared_models)) {
-    row <- shared_models[paste0("db_", shared_models$id) == model_id, ,
-                         drop = FALSE]
-    if (nrow(row)) {
-      return(row$name[[1]])
-    }
+  row <- shared_model_row(model_id, shared_models)
+  if (!is.null(row)) {
+    return(row$name[[1]])
   }
   model_id
 }
@@ -210,14 +219,11 @@ model_description <- function(model_id, user_models, shared_models = NULL) {
   }
   text <- NULL
   own <- user_models[[model_id]]
+  row <- shared_model_row(model_id, shared_models)
   if (!is.null(own)) {
     text <- own$description
-  } else if (!is.null(shared_models) && nrow(shared_models)) {
-    row <- shared_models[paste0("db_", shared_models$id) == model_id, ,
-                         drop = FALSE]
-    if (nrow(row)) {
-      text <- row$description[[1]]
-    }
+  } else if (!is.null(row)) {
+    text <- row$description[[1]]
   }
   if (is.null(text) && model_id %in% list_models()) {
     text <- if (model_id %in% names(library_descriptions)) {

@@ -242,14 +242,13 @@ component_wizard_modal <- function() {
 }
 
 # Formulario del modelo: nombre, descripción y editor del código de mrgsolve
-# con todos los bloques, la opción de cargar un archivo .cpp o de empezar
-# con el asistente y un resumen de lo que se admite.
+# con todos los bloques y la opción de cargar un archivo .cpp o de empezar
+# con el asistente.
 # Recibe: prefijo para formar ids de entrada, especificación inicial y si
 # muestra las herramientas para cargar un archivo y abrir el asistente.
 # Devuelve: div de Shiny con el formulario.
 code_form <- function(prefix, spec = code_example(), tools = TRUE) {
   id <- function(x) paste0(prefix, x)
-  item <- function(title, ...) shiny::tags$li(shiny::strong(title), ...)
 
   shiny::div(
     class = "pk-component-form",

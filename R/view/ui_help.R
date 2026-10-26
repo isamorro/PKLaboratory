@@ -312,7 +312,9 @@ help_ui <- function() {
         shiny::tags$ol(
           item(
             "Selecciona el modelo.",
-            "Elige el modelo que deseas utilizar desde la barra superior."
+            "Elige el modelo que deseas utilizar desde la barra superior.",
+            " Junto al selector aparece su descripción y, con «Ver código»,",
+            " puedes consultar su código de mrgsolve."
           ),
           item(
             "Configura los parámetros del modelo.",
@@ -331,10 +333,10 @@ help_ui <- function() {
           item(
             "Establece la duración de la administración.",
             "Introduce un valor de 0 para administrar la dosis",
-            " de forma instantánea (bolo) o un valor mayor que 0", 
+            " de forma instantánea (bolo) o un valor mayor que 0",
             " para realizar una infusión a velocidad constante",
             " (dosis / duración).",
-            " Si se administran varias dosis, la duración de la infusión", 
+            " Si se administran varias dosis, la duración de la infusión",
             " no puede superar el intervalo entre ellas. ",
           ),
           item(
@@ -743,7 +745,8 @@ help_ui <- function() {
           shiny::tags$ol(
             item(
               "Selecciona el modelo farmacocinético.",
-              "Elígelo desde la barra superior."
+              "Elígelo desde la barra superior. Como en Simulación, junto al",
+              " selector aparece su descripción y puedes consultar su código."
             ),
             item(
               "Carga el archivo CSV.",

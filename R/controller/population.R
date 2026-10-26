@@ -371,8 +371,7 @@ population_controller <- function(input, output, session, user_models,
     }
     r <- data_roles()
     res <- population_check_data(
-      st, csv_data(), r$group, r$time, r$response, r$dose_column,
-      dose_cmt_for(st)
+      st, csv_data(), r$group, r$time, r$response, dose_cmt_for(st)
     )
     # Los errores al pasar a h, mg y mg/L (por ejemplo, mg/kg sin peso)
     # dependen de las unidades elegidas: también impiden ajustar, pero se

@@ -15,20 +15,6 @@
 # Recibe: entradas, salidas y sesión de Shiny.
 server <- function(input, output, session) {
 
-  if (!exists("main_app_ui", mode = "function")) {
-    ui_file <- file.path(getwd(), "ui.R")
-    if (file.exists(ui_file)) {
-      source(ui_file)
-    }
-  }
-
-  if (!exists("login_ui", mode = "function")) {
-    login_file <- file.path(getwd(), "R", "view", "ui_login.R")
-    if (file.exists(login_file)) {
-      source(login_file)
-    }
-  }
-
   # Estado de la sesión.
   logged_in <- reactiveVal(FALSE)
   current_user <- reactiveVal(NULL)
@@ -93,22 +79,15 @@ server <- function(input, output, session) {
   }
   results_controller(input, output, session, simulation, current_model_label)
 
-  safe_main_app_ui <- function() {
-    if (exists("main_app_ui", mode = "function")) {
-      return(main_app_ui(
+  output$app_page <- renderUI({
+    if (isTRUE(logged_in())) {
+      main_app_ui(
         model_choices(
           shiny::isolate(user_models()),
           shiny::isolate(shared_models())
         ),
         shiny::isolate(selected_model_id())
-      ))
-    }
-    login_ui()
-  }
-
-  output$app_page <- renderUI({
-    if (isTRUE(logged_in())) {
-      safe_main_app_ui()
+      )
     } else {
       login_ui()
     }

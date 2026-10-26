@@ -31,12 +31,19 @@ choose_time_step <- function(end_time, interval, n_doses, infusion = 0) {
     step <- min(step, infusion / 10)
   }
 
-  step <- max(step, end_time / max_time_points)
+  min_step <- end_time / max_time_points
+  step <- max(step, min_step)
 
   # Alinea la rejilla con las dosis: cada dosis cae exactamente en un punto,
-  # de modo que el pico no queda recortado.
+  # de modo que el pico no queda recortado. Si así se superase el máximo de
+  # puntos, se alinea con un paso algo mayor o, si el intervalo es más corto
+  # que el paso, no se alinea.
   if (n_doses > 1) {
-    step <- interval / ceiling(interval / step)
+    aligned <- interval / ceiling(interval / step)
+    if (aligned < min_step && interval >= step) {
+      aligned <- interval / floor(interval / step)
+    }
+    if (aligned >= min_step) step <- aligned
   }
 
   step

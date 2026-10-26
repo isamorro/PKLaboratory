@@ -25,6 +25,10 @@ source_dir("R/model")
 source_dir("R/view")
 source_dir("R/controller")
 
+# La guía de uso es igual para todos los usuarios: se construye una sola
+# vez al arrancar, no en cada inicio de sesión.
+help_page <- help_ui()
+
 # Base de datos.
 # Guarda los usuarios, sus modelos y el catálogo compartido.
 database_pool <- tryCatch(
