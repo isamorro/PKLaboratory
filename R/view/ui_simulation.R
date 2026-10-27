@@ -77,7 +77,7 @@ simulation_ui <- function(model_choices = list_models(),
             )
           ),
           shiny::numericInput(
-            "infusion", "Duración de la infusión (0 = bolo)",
+            "infusion", "Duración de la infusión (0 = bolo, > 0 = infusión)",
             value = 0, min = 0
           )
         ),

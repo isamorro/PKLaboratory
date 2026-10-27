@@ -268,6 +268,26 @@ help_ui <- function() {
     )
   )
 
+  # Estructuras de $PKMODEL según el argumento advan (mrgsolve 2.0.1).
+  advan_rows <- list(
+    c("1", "1 compartimento", "Bolo intravenoso"),
+    c("2", "1 compartimento", "Absorción de primer orden"),
+    c("3", "2 compartimentos", "Bolo intravenoso"),
+    c("4", "2 compartimentos", "Absorción de primer orden"),
+    c("11", "3 compartimentos", "Bolo intravenoso"),
+    c("12", "3 compartimentos", "Absorción de primer orden")
+  )
+  advan <- shiny::tags$table(
+    class = "pk-doc-table",
+    shiny::tags$thead(shiny::tags$tr(
+      shiny::tags$th("advan"), shiny::tags$th("Estructura"),
+      shiny::tags$th("Administración")
+    )),
+    shiny::tags$tbody(lapply(advan_rows, function(r) {
+      shiny::tags$tr(lapply(r, shiny::tags$td))
+    }))
+  )
+
   shiny::div(
     class = "pk-doc-page",
     shiny::tags$article(
@@ -448,6 +468,19 @@ help_ui <- function() {
         shiny::p(
           "Si el código no compila, se muestran los errores del",
           "compilador junto a la línea que los produce."
+        ),
+        shiny::h3("Modelos compartimentales con $PKMODEL"),
+        shiny::p(
+          "Los modelos de 1, 2 o 3 compartimentos pueden definirse sin",
+          "escribir las ecuaciones diferenciales: basta con el bloque",
+          code("$PKMODEL"), " y el argumento", code("advan"),
+          ", que elige la estructura según la numeración de NONMEM.",
+          "mrgsolve resuelve el modelo con su solución analítica."
+        ),
+        advan,
+        shiny::p(
+          "Más información en la ",
+          external_link(mrgsolve_advan_url, "documentación de mrgsolve"), "."
         ),
         shiny::h3("Asistente por componentes"),
         shiny::p(
@@ -1071,8 +1104,7 @@ help_ui <- function() {
             shiny::tags$ol(
               shiny::tags$li("Elige el modelo pk1."),
               shiny::tags$li(
-                "Carga theoph.csv. En la dosis, elige la unidad mg/kg y la",
-                "columna Wt como peso."
+                "Carga theoph.csv."
               ),
               shiny::tags$li(
                 "Elige EV como compartimento de la dosis y pulsa",
@@ -1084,7 +1116,7 @@ help_ui <- function() {
               ),
               shiny::tags$li("Pulsa «Estimar parámetros».")
             )
-          )
+          ),
         ),
         subsection(
           "pob_avisos", "3.8", "Avisos frecuentes",

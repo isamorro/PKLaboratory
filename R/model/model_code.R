@@ -23,6 +23,12 @@
 # Guía de mrgsolve donde se explican los bloques del modelo.
 mrgsolve_spec_url <- "https://mrgsolve.org/user-guide/specification.html#pkpd-model"
 
+# Nota de mrgsolve 2.0.1 que presenta el argumento advan de $PKMODEL.
+mrgsolve_advan_url <- paste0(
+  "https://mrgsolve.org/blog/posts/2026-new-2-0-1.html",
+  "#pkmodel-gains-advan-argument"
+)
+
 # Longitud máxima del código de un modelo.
 max_code_length <- 30000L
 
