@@ -20,7 +20,8 @@ ui <- shiny::fluidPage(
   lang = "es",
   shiny::tags$head(
     shiny::tags$link(rel = "stylesheet", href = "styles.css"),
-    shiny::tags$script(src = "intro.js", defer = NA)
+    shiny::tags$script(src = "intro.js", defer = NA),
+    shiny::tags$script(src = "session.js", defer = NA)
   ),
   # Fuera de app_page para no repetir la animación al entrar o salir.
   shiny::div(

@@ -60,6 +60,23 @@ ensure_auth_users_table <- function(db) {
   invisible(NULL)
 }
 
+# Inicializa la tabla de sesiones abiertas, que permite recargar la página
+# sin volver a iniciar sesión. Solo se guarda el hash de cada token.
+# Recibe: conexión a la base de datos de usuarios.
+# Devuelve: invisible(NULL).
+ensure_sessions_table <- function(db) {
+  if (is.null(db)) {
+    stop("La base de datos de autenticación no está disponible.", call. = FALSE)
+  }
+
+  DBI::dbExecute(db, "CREATE TABLE IF NOT EXISTS app_sessions (
+    token_hash TEXT PRIMARY KEY,
+    username TEXT NOT NULL REFERENCES app_users (username) ON DELETE CASCADE,
+    expires_at TIMESTAMPTZ NOT NULL
+  )")
+  invisible(NULL)
+}
+
 # Prepara la tabla user_models para que cada modelo pertenezca a una cuenta.
 # Es idempotente: se puede ejecutar en cada arranque.
 #  - owner_username: usuario propietario (NULL en los modelos anteriores).

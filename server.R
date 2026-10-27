@@ -18,6 +18,11 @@ server <- function(input, output, session) {
   # Estado de la sesión.
   logged_in <- reactiveVal(FALSE)
   current_user <- reactiveVal(NULL)
+  # Si ya se ha comprobado el token guardado en la pestaña (al recargar), para
+  # no enseñar el login un instante antes de recuperar la sesión.
+  resume_checked <- reactiveVal(FALSE)
+  # Token de la sesión iniciada, para borrarlo al cerrar la sesión.
+  session_token <- NULL
 
   # Modelos creados por el usuario: id -> datos del modelo. Los guardados en la
   # base de datos tienen id "db_<n>" y se cargan al iniciar sesión; los que no
@@ -41,7 +46,8 @@ server <- function(input, output, session) {
     shared_models,
     database_pool,
     selected_model_id,
-    current_user
+    current_user,
+    shared_cache
   )
   model <- model_controller(
     input,
@@ -80,7 +86,9 @@ server <- function(input, output, session) {
   results_controller(input, output, session, simulation, current_model_label)
 
   output$app_page <- renderUI({
-    if (isTRUE(logged_in())) {
+    if (!isTRUE(resume_checked())) {
+      NULL
+    } else if (isTRUE(logged_in())) {
       main_app_ui(
         model_choices(
           shiny::isolate(user_models()),
@@ -91,6 +99,49 @@ server <- function(input, output, session) {
     } else {
       login_ui()
     }
+  })
+
+  # Entra en la aplicación con un usuario ya comprobado: carga sus modelos
+  # guardados antes de mostrarla, para que ya aparezcan en el selector.
+  # Recibe: lista con el usuario.
+  start_session <- function(user) {
+    current_user(user)
+    if (!is.null(database_pool) && !refresh_catalog()) {
+      showNotification(
+        "No se pudieron cargar tus modelos guardados.",
+        type = "warning"
+      )
+    }
+    logged_in(TRUE)
+  }
+
+  # Guarda (o borra, con NULL) el token de sesión en la pestaña del navegador.
+  send_session_token <- function(token) {
+    session_token <<- token
+    session$sendCustomMessage("pk_session_token", list(token = token))
+  }
+
+  # Al cargar la página, el navegador envía el token guardado en la pestaña
+  # (vacío si no hay). Si sigue siendo válido, se recupera la sesión.
+  observeEvent(input$resume_token, {
+    token <- input$resume_token
+    if (!isTRUE(logged_in()) && !is.null(database_pool) &&
+        is.character(token) && length(token) == 1L && nzchar(token)) {
+      user <- tryCatch(
+        find_session_user(database_pool, token),
+        error = function(e) {
+          message("[sesión] ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (is.null(user)) {
+        send_session_token(NULL)
+      } else {
+        session_token <<- token
+        start_session(user)
+      }
+    }
+    resume_checked(TRUE)
   })
 
   observeEvent(input$login_submit, {
@@ -157,19 +208,27 @@ server <- function(input, output, session) {
 
     clear_login_failures(username)
 
-    # Se cargan los modelos guardados de la cuenta antes de mostrar la
-    # aplicación, para que ya aparezcan en el selector.
-    current_user(user)
-    if (!is.null(database_pool) && !refresh_catalog()) {
-      showNotification(
-        "No se pudieron cargar tus modelos guardados.",
-        type = "warning"
-      )
-    }
-    logged_in(TRUE)
+    # Si no se puede crear el token, se entra igual, pero al recargar habrá
+    # que volver a iniciar sesión.
+    token <- tryCatch(
+      create_session_token(database_pool, user$username),
+      error = function(e) {
+        message("[sesión] ", conditionMessage(e))
+        NULL
+      }
+    )
+    send_session_token(token)
+    start_session(user)
   })
 
   observeEvent(input$logout, {
+    if (!is.null(session_token)) {
+      tryCatch(
+        delete_session_token(database_pool, session_token),
+        error = function(e) message("[sesión] ", conditionMessage(e))
+      )
+    }
+    send_session_token(NULL)
     logged_in(FALSE)
     current_user(NULL)
 

@@ -54,6 +54,13 @@ if (!is.null(database_pool)) {
       message("No se pudo preparar la tabla app_users: ", conditionMessage(e))
     }
   )
+  tryCatch(
+    ensure_sessions_table(database_pool),
+    error = function(e) {
+      message("No se pudo preparar la tabla app_sessions: ",
+              conditionMessage(e))
+    }
+  )
 }
 
 shiny::onStop(function() {

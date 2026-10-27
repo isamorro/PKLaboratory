@@ -10,6 +10,10 @@
 # ataques de fuerza bruta. Los fallos se cuentan por usuario (no por sesión,
 # para que abrir otra pestaña no reinicie el contador) y se guardan en memoria
 # del proceso de R: se pierden al reiniciar la aplicación.
+# También gestiona los tokens de sesión, que permiten recargar la página sin
+# volver a escribir la contraseña. El navegador guarda el token solo en la
+# pestaña (sessionStorage) y la base de datos solo guarda su hash, con una
+# caducidad fija; al cerrar la sesión se borra.
 # ============================================================
 
 # Fallos permitidos dentro de la ventana antes de bloquear el usuario.
@@ -94,4 +98,59 @@ describe_wait <- function(seconds) {
   } else {
     paste(seconds, if (seconds == 1) "segundo" else "segundos")
   }
+}
+
+# Horas que dura un token de sesión desde que se inicia sesión.
+session_token_hours <- 12
+
+# Calcula el hash con el que se guarda un token en la base de datos.
+# Recibe: token en texto.
+# Devuelve: hash SHA-256 en hexadecimal.
+hash_session_token <- function(token) {
+  sodium::bin2hex(sodium::sha256(charToRaw(token)))
+}
+
+# Crea un token de sesión aleatorio para un usuario y guarda su hash. De paso
+# borra los tokens caducados.
+# Recibe: conexión a la base de datos y usuario.
+# Devuelve: token en texto, para enviarlo al navegador.
+create_session_token <- function(db, username) {
+  token <- sodium::bin2hex(sodium::random(32))
+  DBI::dbExecute(db, "DELETE FROM app_sessions WHERE expires_at <= now()")
+  DBI::dbExecute(
+    db,
+    "INSERT INTO app_sessions (token_hash, username, expires_at)
+     VALUES ($1, $2, now() + make_interval(hours => $3))",
+    params = list(hash_session_token(token), username,
+                  as.integer(session_token_hours))
+  )
+  token
+}
+
+# Busca el usuario de un token de sesión que no haya caducado y cuya cuenta
+# siga activa.
+# Recibe: conexión a la base de datos y token en texto.
+# Devuelve: lista con el usuario (como verify_user_credentials) o NULL.
+find_session_user <- function(db, token) {
+  if (!grepl("^[0-9a-f]{64}$", token)) return(NULL)
+  row <- DBI::dbGetQuery(
+    db,
+    "SELECT u.username, u.full_name
+     FROM app_sessions s JOIN app_users u ON u.username = s.username
+     WHERE s.token_hash = $1 AND s.expires_at > now() AND u.is_active = TRUE",
+    params = list(hash_session_token(token))
+  )
+  if (nrow(row) != 1L) return(NULL)
+  list(username = row$username[[1]], full_name = row$full_name[[1]])
+}
+
+# Borra un token de sesión (al cerrar la sesión).
+# Recibe: conexión a la base de datos y token en texto.
+delete_session_token <- function(db, token) {
+  DBI::dbExecute(
+    db,
+    "DELETE FROM app_sessions WHERE token_hash = $1",
+    params = list(hash_session_token(token))
+  )
+  invisible(NULL)
 }

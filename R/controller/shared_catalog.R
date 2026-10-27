@@ -8,18 +8,43 @@
 # Descripción:
 # Gestiona el catálogo de modelos de la base de datos: carga los modelos del
 # usuario y los compartidos por otros, mantiene el selector de modelos y
-# permite compartir o dejar de compartir los modelos propios.
+# permite compartir o dejar de compartir los modelos propios. Comprueba cada
+# pocos segundos si otro usuario ha cambiado el catálogo compartido, para que
+# los cambios aparezcan sin volver a iniciar sesión.
 # ============================================================
+
+# Cada cuánto se comprueba si el catálogo compartido ha cambiado (ms).
+catalog_poll_ms <- 10000
 
 # Gestiona el catálogo de modelos guardados en la base de datos.
 # Recibe: entradas, salidas y sesión de Shiny, reactiveVal con los modelos
 # propios y con los compartidos, conexión a la base de datos, reactiveVal con
-# el modelo seleccionado y reactiveVal con el usuario actual.
+# el modelo seleccionado, reactiveVal con el usuario actual y caché de modelos
+# compartidos compilados de la sesión.
 # Devuelve: función refresh() que vuelve a consultar el catálogo del usuario
 # actual (TRUE si lo consigue). Se llama al iniciar sesión.
 shared_catalog_controller <- function(input, output, session, user_models,
                                       shared_models, db, selected_model_id,
-                                      current_user) {
+                                      current_user, shared_cache) {
+  # Especificación de cada modelo compartido la última vez que se consultó,
+  # para saber cuándo la ha cambiado su autor.
+  known_specs <- new.env(parent = emptyenv())
+
+  # Quita de la caché los modelos de otros usuarios que ya no se pueden ver o
+  # cuyo código ha cambiado, para que se vuelvan a compilar al elegirlos.
+  forget_stale_models <- function(others) {
+    ids <- sprintf("db_%s", others$id)
+    specs <- stats::setNames(others$specification, ids)
+    for (id in ls(known_specs, all.names = TRUE)) {
+      if (!identical(known_specs[[id]], specs[id][[1]]) &&
+          exists(id, envir = shared_cache, inherits = FALSE)) {
+        rm(list = id, envir = shared_cache)
+      }
+    }
+    rm(list = ls(known_specs, all.names = TRUE), envir = known_specs)
+    for (id in ids) known_specs[[id]] <- specs[[id]]
+  }
+
   # Consulta la base de datos y actualiza los modelos propios y los
   # compartidos del usuario actual.
   refresh <- function() {
@@ -31,6 +56,7 @@ shared_catalog_controller <- function(input, output, session, user_models,
       mine <- rows$owner_username %in% user$username
       shared <- rows$is_shared %in% TRUE
 
+      forget_stale_models(rows[shared & !mine, , drop = FALSE])
       shared_models(rows[shared, names(empty_shared_models()), drop = FALSE])
       user_models(merge_own_models(
         shiny::isolate(user_models()),
@@ -42,6 +68,24 @@ shared_catalog_controller <- function(input, output, session, user_models,
       FALSE
     })
   }
+
+  # Huella del catálogo compartido, consultada cada catalog_poll_ms mientras
+  # hay un usuario con la sesión iniciada.
+  catalog_version <- shiny::reactivePoll(
+    catalog_poll_ms,
+    session,
+    checkFunc = function() {
+      if (is.null(db) || is.null(shiny::isolate(current_user()))) return("")
+      tryCatch(shared_catalog_version(db), error = function(e) {
+        message("[catálogo] ", conditionMessage(e))
+        NA_character_
+      })
+    },
+    valueFunc = function() Sys.time()
+  )
+
+  # Cuando otro usuario cambia el catálogo compartido, se vuelve a cargar.
+  observeEvent(catalog_version(), refresh(), ignoreInit = TRUE)
 
   # El modelo elegido en el selector es el modelo seleccionado. Así, cuando el
   # catálogo cambia, el selector se actualiza sin perder lo que había elegido.

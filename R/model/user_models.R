@@ -49,6 +49,23 @@ list_user_models <- function(db, username) {
     ORDER BY name, id", params = list(as.character(username)))
 }
 
+# Calcula una huella del catálogo compartido: cambia cuando alguien comparte o
+# deja de compartir un modelo, o cuando cambia el nombre, la descripción o la
+# especificación de uno compartido. Es una consulta ligera para comprobar a
+# menudo si hay que volver a cargar el catálogo.
+# Recibe: conexión a la base de datos.
+# Devuelve: texto con la huella (vacío si no hay modelos compartidos).
+shared_catalog_version <- function(db) {
+  require_database(db)
+  DBI::dbGetQuery(db, "
+    SELECT coalesce(md5(string_agg(
+             id::text || ':' || name || ':' || coalesce(description, '') ||
+             ':' || md5(specification::text), ',' ORDER BY id)), '') AS version
+    FROM user_models
+    WHERE validation_status = 'validado' AND specification IS NOT NULL
+      AND is_shared")$version[[1]]
+}
+
 # Recupera un modelo concreto, solo si es del usuario o está compartido.
 # Recibe: conexión activa, identificador del modelo y nombre del usuario.
 # Devuelve: fila con la especificación y metadatos del modelo solicitado.
