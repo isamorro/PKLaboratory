@@ -557,7 +557,7 @@ help_ui <- function() {
             mrgsolve_spec_link("guía de usuario de mrgsolve.")
           ),
           shiny::tags$ol(
-            shiny::tags$li("Asigna un nombre al modelo.."),
+            shiny::tags$li("Asigna un nombre al modelo."),
             shiny::tags$li("Copia este código en el editor.", pkpd_code),
             shiny::tags$li("Pulsa Guardar modelo."),
             shiny::tags$li("En Simulación, pulsa Simular.")

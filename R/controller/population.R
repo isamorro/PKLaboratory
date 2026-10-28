@@ -530,6 +530,7 @@ population_controller <- function(input, output, session, user_models,
   output[[id("data_plot")]] <- shiny::renderPlot({
     r <- data_roles()
     dat <- csv_data()
+    narrow <- plot_is_narrow(session, id("data_plot"))
     ggplot2::ggplot(
       dat,
       ggplot2::aes(
@@ -539,7 +540,8 @@ population_controller <- function(input, output, session, user_models,
     ) +
       ggplot2::geom_line(alpha = .4, colour = "#187A5B") +
       ggplot2::geom_point(alpha = .5, colour = "#187A5B", size = 1) +
-      ggplot2::theme_minimal() +
+      ggplot2::scale_x_continuous(n.breaks = if (narrow) 4 else 6) +
+      ggplot2::theme_minimal(base_size = if (narrow) 10 else 11) +
       ggplot2::labs(
         x = sprintf("%s (%s)", r$time, r$time_unit),
         y = sprintf("%s (%s)", r$response, r$conc_unit),
@@ -1023,8 +1025,10 @@ population_controller <- function(input, output, session, user_models,
     ))
   })
 
-  # Estimación e IC del 95 % de cada paciente, por parámetro.
+  # Estimación e IC del 95 % de cada paciente, por parámetro. En el móvil los
+  # parámetros van uno debajo de otro, y la altura crece con los pacientes.
   output[[id("individual_plot")]] <- shiny::renderPlot({
+    narrow <- plot_is_narrow(session, id("individual_plot"))
     res <- individual()
     shiny::req(isTRUE(res$ok))
     d <- res$fits[is.finite(res$fits$Estimacion), , drop = FALSE]
@@ -1050,9 +1054,24 @@ population_controller <- function(input, output, session, user_models,
         ggplot2::aes(x = .data$Estimacion),
         colour = "#B06F20", size = 2
       ) +
-      ggplot2::facet_wrap(~Parametro, nrow = 1, scales = "free_x") +
-      ggplot2::theme_minimal() +
+      ggplot2::facet_wrap(
+        ~Parametro,
+        nrow = if (narrow) NULL else 1,
+        ncol = if (narrow) 1 else NULL,
+        scales = "free_x"
+      ) +
+      ggplot2::scale_x_continuous(n.breaks = if (narrow) 4 else 5) +
+      ggplot2::theme_minimal(base_size = if (narrow) 10 else 11) +
       ggplot2::labs(x = "Estimación individual con IC del 95 %", y = "Paciente")
+  }, height = function() {
+    res <- individual()
+    if (!plot_is_narrow(session, id("individual_plot")) ||
+        !isTRUE(res$ok)) {
+      return(340)
+    }
+    n_params <- length(unique(res$fits$Parametro))
+    n_patients <- length(unique(res$fits$Paciente))
+    max(340, 50 + n_params * (50 + 14 * n_patients))
   })
 
   # Tabla de los ajustes individuales con errores estándar y p-valores.

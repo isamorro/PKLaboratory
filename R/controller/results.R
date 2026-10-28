@@ -54,9 +54,17 @@ results_controller <- function(input, output, session, simulation,
         all(input$plot_vars %in% names(data))
       )
 
-      create_pk_plot(data, input$plot_vars, model_label(simulated_model()))
+      create_pk_plot(
+        data, input$plot_vars, model_label(simulated_model()),
+        narrow = plot_is_narrow(session, "pk_plot")
+      )
     },
-    height = function() plot_height(length(input$plot_vars))
+    height = function() {
+      plot_height(
+        length(input$plot_vars),
+        narrow = plot_is_narrow(session, "pk_plot")
+      )
+    }
   )
 
   output$results <- renderTable({

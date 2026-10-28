@@ -225,7 +225,7 @@ population_ui <- function() {
               page_card(
                 "Estimaciones individuales (nlsList)",
                 shiny::uiOutput(id("individual_status")),
-                shiny::plotOutput(id("individual_plot"), height = "340px"),
+                shiny::plotOutput(id("individual_plot"), height = "auto"),
                 shiny::tags$details(
                   class = "pk-pop-details",
                   shiny::tags$summary(
