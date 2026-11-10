@@ -8,7 +8,7 @@
 # Descripción:
 # Define la interfaz de la guía de uso de PKLaboratory, organizada como
 # un documento con índice y secciones numeradas: Simulación, Crear modelo,
-# Análisis poblacional y Mis modelos. Incluye ejemplos prácticos de
+# Análisis poblacional, Mis modelos y Bibliografía. Incluye ejemplos prácticos de
 # simulación con pk1, creación de un modelo PK/PD y análisis de los datos
 # Theoph. Los nombres de las columnas y las unidades se obtienen de
 # R/model/population.R para mantener la guía sincronizada con la aplicación.
@@ -119,8 +119,23 @@ help_ui <- function() {
       pob_avisos = "Avisos frecuentes",
       pob_limites = "Limitaciones"
     ),
-    modelos = list("Mis modelos")
+    modelos = list("Mis modelos"),
+    bibliografia = list("Bibliografía")
   )
+  # Referencia bibliográfica (estilo APA): autores, año, título, fuente y
+  # enlace. Las obras completas llevan el título en cursiva; los artículos
+  # y capítulos, la revista o el libro que los contiene.
+  ref <- function(authors, year, title, ..., link = NULL) {
+    shiny::tags$li(
+      paste0(authors, " (", year, ")."), title, ...,
+      if (!is.null(link)) {
+        shiny::tags$a(href = link, target = "_blank", rel = "noopener", link)
+      }
+    )
+  }
+  em <- function(x) shiny::tags$em(x, .noWS = "after")
+  doi <- function(x) paste0("https://doi.org/", x)
+
   toc_link <- function(anchor, title) {
     shiny::tags$a(href = paste0("#pk-help-", anchor), title)
   }
@@ -210,20 +225,15 @@ help_ui <- function() {
       shiny::tags$th("Qué es")
     )),
     shiny::tags$tbody(lapply(labels, function(l) {
+      categorical <- l %in% population_categorical_labels
       shiny::tags$tr(
         shiny::tags$td(l),
         shiny::tags$td(names_list(
           names(population_known_covariates)[population_known_covariates == l]
         )),
+        shiny::tags$td(if (categorical) "Categórica" else "Continua"),
         shiny::tags$td(
-          if (l %in% population_categorical_labels) {
-            "Categórica"
-          } else {
-            "Continua"
-          }
-        ),
-        shiny::tags$td(
-          if (l %in% population_categorical_labels) {
+          if (categorical) {
             paste0(
               "Texto o número, como mucho 6 valores (",
               categorical_values[[l]], ")"
@@ -237,56 +247,36 @@ help_ui <- function() {
     }))
   )
 
-  # Unidad de los parámetros estimados, según su nombre.
-  units <- shiny::tags$table(
-    class = "pk-doc-table",
-    shiny::tags$thead(shiny::tags$tr(
-      shiny::tags$th("Parámetro"), shiny::tags$th("Nombres"),
-      shiny::tags$th("Unidad")
-    )),
-    shiny::tags$tbody(
-      shiny::tags$tr(
-        shiny::tags$td("Aclaramientos"),
-        shiny::tags$td("Empiezan por CL o Q (CL, CL2, Q, Q2...)"),
-        shiny::tags$td("L/h")
-      ),
-      shiny::tags$tr(
-        shiny::tags$td("Volúmenes"),
-        shiny::tags$td("Empiezan por V (V, V2, VC, VP...)"),
-        shiny::tags$td("L")
-      ),
-      shiny::tags$tr(
-        shiny::tags$td("Constantes de velocidad"),
-        shiny::tags$td("Empiezan por K (KA, KE, K10...)"),
-        shiny::tags$td("1/h")
-      ),
-      shiny::tags$tr(
-        shiny::tags$td("Otros"),
-        shiny::tags$td("Cualquier otro nombre"),
-        shiny::tags$td("Sin unidad indicada")
-      )
+  # Tabla de texto plano.
+  # Recibe: encabezados y filas (cada fila, un vector con sus celdas).
+  # Devuelve: etiqueta <table>.
+  text_table <- function(header, rows) {
+    shiny::tags$table(
+      class = "pk-doc-table",
+      shiny::tags$thead(shiny::tags$tr(lapply(header, shiny::tags$th))),
+      shiny::tags$tbody(lapply(rows, function(r) {
+        shiny::tags$tr(lapply(r, shiny::tags$td))
+      }))
     )
-  )
+  }
+
+  # Unidad de los parámetros estimados, según su nombre.
+  units <- text_table(c("Parámetro", "Nombres", "Unidad"), list(
+    c("Aclaramientos", "Empiezan por CL o Q (CL, CL2, Q, Q2...)", "L/h"),
+    c("Volúmenes", "Empiezan por V (V, V2, VC, VP...)", "L"),
+    c("Constantes de velocidad", "Empiezan por K (KA, KE, K10...)", "1/h"),
+    c("Otros", "Cualquier otro nombre", "Sin unidad indicada")
+  ))
 
   # Estructuras de $PKMODEL según el argumento advan (mrgsolve 2.0.1).
-  advan_rows <- list(
+  advan <- text_table(c("advan", "Estructura", "Administración"), list(
     c("1", "1 compartimento", "Bolo intravenoso"),
     c("2", "1 compartimento", "Absorción de primer orden"),
     c("3", "2 compartimentos", "Bolo intravenoso"),
     c("4", "2 compartimentos", "Absorción de primer orden"),
     c("11", "3 compartimentos", "Bolo intravenoso"),
     c("12", "3 compartimentos", "Absorción de primer orden")
-  )
-  advan <- shiny::tags$table(
-    class = "pk-doc-table",
-    shiny::tags$thead(shiny::tags$tr(
-      shiny::tags$th("advan"), shiny::tags$th("Estructura"),
-      shiny::tags$th("Administración")
-    )),
-    shiny::tags$tbody(lapply(advan_rows, function(r) {
-      shiny::tags$tr(lapply(r, shiny::tags$td))
-    }))
-  )
+  ))
 
   shiny::div(
     class = "pk-doc-page",
@@ -357,7 +347,7 @@ help_ui <- function() {
             " para realizar una infusión a velocidad constante",
             " (dosis / duración).",
             " Si se administran varias dosis, la duración de la infusión",
-            " no puede superar el intervalo entre ellas. ",
+            " no puede superar el intervalo entre ellas."
           ),
           item(
             "Ejecuta la simulación.",
@@ -1116,7 +1106,7 @@ help_ui <- function() {
               ),
               shiny::tags$li("Pulsa «Estimar parámetros».")
             )
-          ),
+          )
         ),
         subsection(
           "pob_avisos", "3.8", "Avisos frecuentes",
@@ -1231,6 +1221,168 @@ help_ui <- function() {
             "Crear modelo nuevo.",
             "Abre la sección «Crear modelo», donde puedes",
             " construir y guardar un nuevo modelo farmacocinético."
+          )
+        )
+      ),
+      section(
+        "bibliografia", "5", "Bibliografía",
+        shiny::tags$ol(
+          class = "pk-doc-refs",
+          ref(
+            "Baron, K. T.", "2025",
+            em("mrgsolve: Simulate from ODE-Based Models"),
+            " [paquete de R]. CRAN.",
+            link = "https://CRAN.R-project.org/package=mrgsolve"
+          ),
+          ref(
+            "Baron, K. T.", "2026",
+            em("modlib: Pharmacokinetic models"), ".",
+            link = "https://mrgsolve.org/docs/reference/modlib_pk.html"
+          ),
+          ref(
+            "Beal, S. L. y Sheiner, L. B.", "1992",
+            em("NONMEM Users Guide"), ".",
+            "University of California, San Francisco."
+          ),
+          ref(
+            "Burnham, K. P. y Anderson, D. R.", "2004",
+            "Multimodel inference: Understanding AIC and BIC in model",
+            "selection.",
+            em("Sociological Methods & Research"), ", 33(2), 261–304.",
+            link = doi("10.1177/0049124104268644")
+          ),
+          ref(
+            "Canavos, G. C.", "2003",
+            em("Probabilidad y estadística: Aplicaciones y métodos"), ".",
+            "McGraw-Hill Interamericana."
+          ),
+          ref(
+            "Cid Cárcamo, E.", "1982",
+            em("Introducción a la farmacocinética"), ".",
+            "Secretaría General de la Organización de los Estados",
+            "Americanos."
+          ),
+          ref(
+            "Correa Morales, J. C. y Salazar Uribe, J. C.", "2016",
+            em("Introducción a los modelos mixtos"), ".",
+            "Universidad Nacional de Colombia, Sede Medellín.",
+            link = "https://repositorio.unal.edu.co/handle/unal/59699"
+          ),
+          ref(
+            "Curry, S. H. y Whelpton, R.", "2011",
+            em(paste(
+              "Drug Disposition and Pharmacokinetics: From Principles",
+              "to Applications"
+            )), ".",
+            "John Wiley & Sons."
+          ),
+          ref(
+            "Durbán, M.", "2014",
+            em("Introducción a los modelos mixtos"), ".",
+            "Material docente, Departamento de Estadística, Universidad",
+            "Carlos III de Madrid.",
+            link = paste0(
+              "https://halweb.uc3m.es/esp/Personal/personas/durban/esp/",
+              "web/cursos/IntroMM/curso_MM_2014.pdf"
+            )
+          ),
+          ref(
+            "García Guirao, J. L.", "s. f.",
+            em("Tema 8: Regresión lineal simple y múltiple"), ".",
+            "Material docente, Universidad Politécnica de Cartagena.",
+            link = "https://jlguirao.es/panel/archivos/tema_8_estadistica.pdf"
+          ),
+          ref(
+            paste(
+              "Goulooze, S. C., Völler, S., Välitalo, P. A. J.,",
+              "Calvier, E. A. M., Aarons, L., Krekels, E. H. J. y",
+              "Knibbe, C. A. J."
+            ), "2019",
+            paste(
+              "The influence of normalization weight in population",
+              "pharmacokinetic covariate models."
+            ),
+            em("Clinical Pharmacokinetics"), ", 58, 131–138.",
+            link = doi("10.1007/s40262-018-0652-7")
+          ),
+          ref(
+            "Lindstrom, M. J. y Bates, D. M.", "1990",
+            "Nonlinear mixed effects models for repeated measures data.",
+            em("Biometrics"), ", 46(3), 673–687.",
+            link = doi("10.2307/2532087")
+          ),
+          ref(
+            "mrgsolve development team", "2026a",
+            em("mrgsolve User Guide"), ".",
+            link = "https://mrgsolve.org/user-guide/"
+          ),
+          ref(
+            "mrgsolve development team", "2026b",
+            em(paste(
+              "About the lsoda differential equation solver used by",
+              "mrgsolve"
+            )), ".",
+            link = "https://mrgsolve.org/docs/reference/aboutsolver.html"
+          ),
+          ref(
+            "Pinheiro, J. C. y Bates, D. M.", "2000",
+            em("Mixed-Effects Models in S and S-PLUS"), ".",
+            "Springer."
+          ),
+          ref(
+            "Pinheiro, J., Bates, D. y R Core Team", "2026",
+            em("nlme: Linear and Nonlinear Mixed Effects Models"),
+            " (versión 3.1-171) [paquete de R]. CRAN.",
+            link = doi("10.32614/CRAN.package.nlme")
+          ),
+          ref(
+            "Richards, M. y Ford, N.", "2020",
+            em("Fundamentals of Software Architecture: An Engineering Approach"),
+            ". O'Reilly Media."
+          ),
+          ref(
+            "Robbins, J. N.", "2018",
+            em(paste(
+              "Learning Web Design: A Beginner's Guide to HTML, CSS,",
+              "JavaScript, and Web Graphics"
+            )),
+            " (5.ª ed.). O'Reilly Media."
+          ),
+          ref(
+            "Shargel, L. y Yu, A. B. C. (Eds.)", "2016",
+            em("Applied Biopharmaceutics & Pharmacokinetics"),
+            " (7.ª ed.). McGraw-Hill Education."
+          ),
+          ref(
+            "Sommerville, I.", "2011",
+            em("Software Engineering"), " (9.ª ed.). Addison-Wesley."
+          ),
+          ref(
+            "Talevi, A. y Bellera, C. L.", "2022a",
+            "One-compartment pharmacokinetic model. En A. Talevi (Ed.),",
+            em("The ADME Encyclopedia"), " (pp. 718–725). Springer.",
+            link = doi("10.1007/978-3-030-84860-6_58")
+          ),
+          ref(
+            "Talevi, A. y Bellera, C. L.", "2022b",
+            "Two-compartment pharmacokinetic model. En A. Talevi (Ed.),",
+            em("The ADME Encyclopedia"), " (pp. 1167–1174). Springer.",
+            link = doi("10.1007/978-3-030-84860-6_59")
+          ),
+          ref(
+            "Tang, S. y Xiao, Y.", "2007",
+            paste(
+              "One-compartment model with Michaelis-Menten elimination",
+              "kinetics and therapeutic window: An analytical approach."
+            ),
+            em("Journal of Pharmacokinetics and Pharmacodynamics"),
+            ", 34, 807–827.",
+            link = doi("10.1007/s10928-007-9070-4")
+          ),
+          ref(
+            "Winter, M. E.", "1994",
+            em("Farmacocinética clínica básica"),
+            " (2.ª ed.). Ediciones Díaz de Santos."
           )
         )
       )
