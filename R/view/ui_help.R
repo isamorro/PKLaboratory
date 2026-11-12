@@ -639,6 +639,10 @@ help_ui <- function() {
             ") o los índices de fila añadidos al exportar datos",
             " desde R o Python (rownames, X, etc.),",
             " la aplicación las ignora o elimina automáticamente."
+          ),
+          video_player(
+            "tutorial_datos.mp4",
+            "▶ Ver el vídeo: cómo debe ser el archivo de datos"
           )
         ),
 
@@ -1106,6 +1110,14 @@ help_ui <- function() {
               ),
               shiny::tags$li("Pulsa «Estimar parámetros».")
             )
+          ),
+          shiny::p(
+            "El siguiente vídeo muestra un análisis con varias covariables sobre",
+            "datos simulados de 40 pacientes con el modelo pk1."
+          ),
+          video_player(
+            "pk1_varias_covariables.mp4",
+            "▶ Ver el vídeo: análisis con varias covariables"
           )
         ),
         subsection(

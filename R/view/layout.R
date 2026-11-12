@@ -123,6 +123,27 @@ model_code_modal <- function(name, description, code) {
   htmltools::tagAppendAttributes(modal, class = "pk-editor-modal")
 }
 
+# Vídeo de la carpeta www que se carga al pulsar su botón (www/video.js).
+# Si el vídeo todavía no está, no se muestra nada.
+# Recibe: nombre del archivo de vídeo (en www) y texto del botón.
+# Devuelve: botón y vídeo, o NULL.
+video_player <- function(file, label) {
+  if (!file.exists(file.path("www", file))) {
+    return(NULL)
+  }
+  shiny::div(
+    class = "pk-video-box",
+    shiny::tags$button(type = "button", class = "pk-video-play", label),
+    shiny::tags$video(
+      class = "pk-video",
+      `data-src` = file,
+      controls = NA,
+      playsinline = NA,
+      hidden = NA
+    )
+  )
+}
+
 # Enlace externo que se abre en una pestaña nueva. Sin espacio detrás,
 # porque suele seguirle un signo de puntuación.
 # Recibe: dirección y texto del enlace.

@@ -1124,6 +1124,42 @@ h4 {
   white-space: pre;
 }
 
+/* Vídeo de la guía: un botón que lo carga y, después, el vídeo a todo el
+   ancho y sin pasar del alto de la ventana. */
+.pk-video-box {
+  margin: 14px 0 18px;
+}
+
+.pk-video-play {
+  width: 100%;
+  padding: 36px 16px;
+  border: 1px solid var(--pk-border);
+  border-radius: 12px;
+  background: #f7faf8;
+  color: var(--pk-primary-dark);
+  font-weight: 700;
+}
+
+.pk-video-play:hover:not(:disabled) {
+  border-color: var(--pk-primary);
+}
+
+.pk-video-play:disabled {
+  color: var(--pk-muted);
+}
+
+.pk-video {
+  display: block;
+  width: 100%;
+  max-height: 65vh;
+  border-radius: 12px;
+  background: #000;
+}
+
+.pk-video[hidden] {
+  display: none;
+}
+
 /* Descripción del modelo seleccionado, junto al selector. */
 .pk-pagebar-description {
   flex: 1 1 280px;
