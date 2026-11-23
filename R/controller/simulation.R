@@ -59,6 +59,7 @@ simulation_controller <- function(input, output, model) {
 
   # Único lugar donde se muestran los errores (caja roja).
   output$sim_errors <- renderUI(error_box(sim_result()$errors))
+  shiny::outputOptions(output, "sim_errors", suspendWhenHidden = FALSE)
 
   # Datos de la simulación; si hubo errores, las salidas quedan vacías.
   reactive({

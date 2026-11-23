@@ -44,9 +44,8 @@ builder_controller <- function(input, output, session, user_models,
 
   errors <- reactiveVal(character())
   wizard_errors <- reactiveVal(character())
-  reject_save <- error_reporter(errors, "No se ha guardado el modelo")
-  reject_file <- error_reporter(errors, "No se ha cargado el archivo")
-  reject_wizard <- error_reporter(wizard_errors, "No se ha generado el código")
+  reject <- error_reporter(errors)
+  reject_wizard <- error_reporter(wizard_errors)
 
   model_spec <- reactive(read_model_form(input, "bld_"))
 
@@ -107,7 +106,7 @@ builder_controller <- function(input, output, session, user_models,
     shiny::req(file)
 
     if (file$size > max_code_length) {
-      reject_file(paste0("El archivo no puede superar ", max_code_length,
+      reject(paste0("El archivo no puede superar ", max_code_length,
                          " caracteres."))
       return()
     }
@@ -117,7 +116,7 @@ builder_controller <- function(input, output, session, user_models,
       error = function(e) NULL
     )
     if (is.null(code) || !validUTF8(code)) {
-      reject_file("No se pudo leer el archivo. Debe ser un archivo de texto.")
+      reject("No se pudo leer el archivo. Debe ser un archivo de texto.")
       return()
     }
 
@@ -133,6 +132,7 @@ builder_controller <- function(input, output, session, user_models,
 
   # Único lugar donde se muestran los errores de esta página (caja roja).
   output$bld_errors <- renderUI(error_box(errors()))
+  shiny::outputOptions(output, "bld_errors", suspendWhenHidden = FALSE)
 
   output$bld_download <- downloadHandler(
     filename = function() {
@@ -167,7 +167,7 @@ builder_controller <- function(input, output, session, user_models,
     }
 
     if (length(problems) > 0) {
-      reject_save(problems)
+      reject(problems)
       return()
     }
 
@@ -179,7 +179,7 @@ builder_controller <- function(input, output, session, user_models,
         compile_user_model(spec, paste0(prefix, counter))
       ),
       error = function(e) {
-        reject_save(conditionMessage(e))
+        reject(conditionMessage(e))
         NULL
       }
     )

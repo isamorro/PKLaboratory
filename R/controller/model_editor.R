@@ -68,7 +68,7 @@ model_editor_controller <- function(
   # Muestra errores de validación durante la edición.
   output$edit_errors <- renderUI(error_box(problems()))
 
-  reject_save <- error_reporter(problems, "No se han guardado los cambios")
+  reject_save <- error_reporter(problems)
 
   # Guarda los cambios del modelo editado.
   observeEvent(input$edit_save, {

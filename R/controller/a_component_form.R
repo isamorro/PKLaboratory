@@ -35,21 +35,14 @@ error_box <- function(messages) {
   div(class = "alert alert-danger", role = "alert", lapply(messages, div))
 }
 
-# Crea la función que informa de los errores de un formulario: los muestra
-# en su caja roja y en una notificación, que se ve aunque la caja haya
-# quedado fuera de la vista. Los errores de validación y de compilación
-# llegan con un mensaje por línea, así que se separan aquí.
-# Recibe: reactiveVal con los mensajes de la caja y título del aviso.
+# Crea la función que informa de los errores de un formulario en su caja
+# roja. Los errores de validación y de compilación llegan con un mensaje
+# por línea, así que se separan aquí.
+# Recibe: reactiveVal con los mensajes de la caja.
 # Devuelve: función que recibe un texto o un vector de mensajes.
-error_reporter <- function(box, title) {
+error_reporter <- function(box) {
   function(messages) {
-    messages <- unlist(strsplit(messages, "\n", fixed = TRUE))
-    box(messages)
-    showNotification(
-      tagList(strong(title), lapply(utils::head(messages, 5L), div)),
-      type = "error",
-      duration = 8
-    )
+    box(unlist(strsplit(messages, "\n", fixed = TRUE)))
   }
 }
 
